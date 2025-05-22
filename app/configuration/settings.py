@@ -1,0 +1,53 @@
+import logging
+import os
+from dotenv import load_dotenv
+
+# Configuração de logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+# Carrega as variáveis de ambiente
+load_dotenv(dotenv_path=".env", encoding="utf-8")
+
+class Configuration:
+    def __init__(self):
+        
+        # Url base
+        self.base_url = os.getenv("BASE_URL", "http://localhost:3000")
+        
+        # Configurações do ambiente e banco de dados
+        self.environment = os.getenv("ENVIRONMENT", "development").lower()
+        
+        # Email
+        self.email_user = os.getenv("EMAIL_USER")
+        self.email_password = os.getenv("EMAIL_PASSWORD")
+        
+        # POSTGRES PRODUCTION
+        self.db_user = os.getenv("DB_USER")
+        self.db_password = os.getenv("DB_PASSWORD")
+        self.db_host = os.getenv("DB_HOST")
+        self.db_port = os.getenv("DB_PORT", "5432")
+        self.db_name = os.getenv("DB_NAME")
+        
+        # POSTGRES
+        self.db_dev_user = os.getenv("DB_DEV_USER")
+        self.db_dev_password = os.getenv("DB_DEV_PASSWORD")
+        self.db_dev_host = os.getenv("DB_DEV_HOST")
+        self.db_dev_port = os.getenv("DB_DEV_PORT", "5432")
+        self.db_dev_name = os.getenv("DB_DEV_NAME")
+        
+        self.mercado_pago_key_test = os.getenv("MERCADO_PAGO_PUBLIC_KEY_TEST")
+        self.mercado_pago_access_token_test = os.getenv("MERCADO_PAGO_ACCESS_TOKEN_TEST")
+                    
+
+    def connect_to_postgresql(self):
+        # Montar a URL de conexão corretamente
+        db_url = f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+        logging.info(f"DB URL: {db_url}")
+        return db_url
+    
+    def connect_to_postgresql_dev(self):
+        # Montar a URL de conexão corretamente
+        db_url = f"postgresql://{self.db_dev_user}:{self.db_dev_password}@{self.db_dev_host}:{self.db_dev_port}/{self.db_dev_name}"
+        logging.info(f"DB DESENVOLVIMENTO URL: {db_url}")
+        return db_url
+    

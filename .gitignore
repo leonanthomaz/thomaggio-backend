@@ -134,3 +134,14 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Ambiente virtual
+venv/
+.venv/
+
+# Arquivos de configuração sensíveis
+.env
+.env.*
+
+# Pasta de materiais (não versionar)
+material/

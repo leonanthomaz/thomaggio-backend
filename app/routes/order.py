@@ -1,0 +1,197 @@
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import Session, select
+from app.enums.cart import CartStatus
+from app.enums.order_status import OrderStatus
+from app.models.cart import Cart
+from app.models.order import Order
+from app.models.order_item import OrderItem
+from app.models.address import Address
+from app.schemas.order import OrderCreate, OrderUpdate, OrderRead, StatusUpdateRequest
+from app.models.user import User
+from app.auth.auth import AuthRouter
+from app.database.connection import get_session
+from app.websockets.ws_manager import order_ws_manager
+
+db_session = get_session
+get_current_user = AuthRouter().get_current_user
+
+
+class OrderRouter(APIRouter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_api_route("/orders/", self.list_orders, methods=["GET"], response_model=List[OrderRead])
+        self.add_api_route("/orders/", self.create_order, methods=["POST"], response_model=OrderRead)
+        self.add_api_route("/orders/{code}", self.get_order, methods=["GET"], response_model=OrderRead)
+        self.add_api_route("/orders/{order_id}", self.update_order, methods=["PUT"], response_model=OrderRead)
+        self.add_api_route("/orders/{order_id}", self.delete_order, methods=["DELETE"], response_model=dict)
+        self.add_api_route("/orders/{order_id}/status", self.update_order_status, methods=["PATCH"])
+
+    def list_orders(self, current_user: User = Depends(get_current_user), session: Session = Depends(db_session)):
+        orders = session.exec(select(Order)).all()
+        for order in orders:
+            order.items = session.exec(select(OrderItem).where(OrderItem.order_id == order.id)).all()
+            order.delivery_address = session.get(Address, order.delivery_address_id)
+        return orders
+
+    async def create_order(self, order_request: OrderCreate, session: Session = Depends(db_session)):
+        try:
+            # 1. Criar ou recuperar usuário
+            user = session.exec(
+                select(User).where(User.phone == order_request.customer.phone)
+            ).first()
+            
+            if not user:
+                user = User(
+                    name=order_request.customer.name,
+                    phone=order_request.customer.phone,
+                    role="customer",
+                    is_active=True
+                )
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+
+            # 2. Criar endereço
+            address = Address(
+                street=order_request.address.street,
+                number=order_request.address.number,
+                complement=order_request.address.complement,
+                neighborhood=order_request.address.neighborhood,
+                city=order_request.address.city,
+                state=order_request.address.state,
+                zip_code=order_request.address.zip_code,
+                reference=order_request.address.reference,
+                user_id=user.id,
+                is_company_address=False
+            )
+            session.add(address)
+            session.commit()
+            session.refresh(address)
+
+            # 3. Criar pedido
+            order = Order(
+                user_id=user.id,
+                customer_name=user.name,
+                phone=user.phone,
+                delivery_address_id=address.id,
+                payment_method=order_request.payment_method,
+                delivery_fee=order_request.delivery_fee,
+                total_amount=order_request.total_amount,
+                whatsapp_id=order_request.whatsapp_id,
+                status=OrderStatus.PENDING
+            )
+            session.add(order)
+            session.commit()
+            session.refresh(order)
+
+            # 4. Criar itens do pedido
+            for item in order_request.items:
+                order_item = OrderItem(
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                    unit_price=item.unit_price,
+                    total_price=item.total_price,
+                    size=item.size,
+                    observation=item.observation,
+                    order_id=order.id
+                )
+                session.add(order_item)
+                
+            if order_request.cart_code:
+                cart = session.exec(select(Cart).where(Cart.code == order_request.cart_code)).first()
+                if cart:
+                    cart.status = CartStatus.COMPLETED
+
+            session.commit()
+
+            # Carregar relacionamentos para resposta
+            order.items = session.exec(select(OrderItem).where(OrderItem.order_id == order.id)).all()
+            order.delivery_address = address
+            
+            await order_ws_manager.broadcast({
+                "type": "new_order",
+                "order": OrderRead.model_validate(order).model_dump(mode="json")
+            })
+            
+            return OrderRead.model_validate(order)
+
+        except Exception as e:
+            session.rollback()
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    async def get_order(self, code: str, session: Session = Depends(db_session)):
+        order = session.exec(select(Order).where(Order.code == code)).first()
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
+
+        order.items = session.exec(select(OrderItem).where(OrderItem.order_id == order.id)).all()
+        
+        # await order_ws_manager.broadcast({
+        #     "type": "new_order",
+        #     "order": OrderRead.model_validate(order).model_dump(mode="json")
+        # })
+
+        return order
+
+    async def update_order(
+        self,
+        order_id: int,
+        updated_order: OrderUpdate,
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(db_session)
+    ):
+        order = session.get(Order, order_id)
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
+
+        # Atualiza campos fornecidos
+        update_data = updated_order.dict(exclude_unset=True)
+
+        for field, value in update_data.items():
+            setattr(order, field, value)
+
+        session.add(order)
+        session.commit()
+        session.refresh(order)
+
+        order.items = session.exec(select(OrderItem).where(OrderItem.order_id == order.id)).all()
+        order.delivery_address = session.get(Address, order.delivery_address_id)
+        
+        await order_ws_manager.broadcast({
+            "type": "new_order",
+            "order": OrderRead.model_validate(order).model_dump(mode="json")
+        })
+
+
+        return OrderRead.model_validate(order)
+
+    def delete_order(self, order_id: int, current_user: User = Depends(get_current_user), session: Session = Depends(db_session)):
+        order = session.get(Order, order_id)
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado")
+
+        # Deleta itens associados
+        session.exec(select(OrderItem).where(OrderItem.order_id == order_id)).delete()
+
+        # Deleta pedido
+        session.delete(order)
+        session.commit()
+        return {"message": "Pedido deletado com sucesso"}
+
+    def update_order_status(
+        self,
+        order_id: int,
+        status_data: StatusUpdateRequest,
+        current_user: User = Depends(get_current_user),
+        session: Session = Depends(db_session)
+    ):
+        order = session.get(Order, order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+        order.status = status_data.status
+        session.commit()
+        session.refresh(order)
+        return {"message": "Status atualizado com sucesso", "status": order.status}
+

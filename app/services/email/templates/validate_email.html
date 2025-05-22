@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redefinição de Senha</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            width: 80%;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007bff;
+        }
+        p {
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #777;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Redefina sua senha</h1>
+        <p>Olá!</p>
+        <p>Recebemos uma solicitação para redefinir sua senha na nossa plataforma. Se você fez essa solicitação, clique no link abaixo para redefinir sua senha:</p>
+        <p>
+            <a href="{{ reset_link }}" class="btn">Redefinir Senha</a>
+        </p>
+        <p>Se você não solicitou essa alteração, por favor, ignore este e-mail.</p>
+        <p class="footer">Atenciosamente,<br>Equipe CyberBot</p>
+    </div>
+</body>
+</html>

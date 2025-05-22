@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lembrete de Pagamento</title>
+</head>
+<body style="font-family: sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh;">
+    <div class="container" style="background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); padding: 40px; width: 80%; max-width: 600px;">
+        <h1 style="color: #007bff; text-align: center;">Lembrete de Pagamento</h1>
+        <p style="color: #333; line-height: 1.6;">Seu pagamento de R$ {{ amount }} vence em {{ due_date }}.</p>
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="http://cyberbot.vercel.app/" style="display: inline-block; background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">Efetuar Pagamento</a>
+        </div>
+    </div>
+</body>
+</html>
