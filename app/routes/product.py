@@ -75,6 +75,20 @@ class ProductRouter(APIRouter):
                 )
             except Exception as e:
                 raise HTTPException(500, detail=f"Erro ao salvar a imagem: {e}")
+            
+        # image_filename = None
+        # if image_file:
+        #     try:
+        #         file_extension = image_file.filename.split(".")[-1].lower()
+        #         image_filename = f"{uuid.uuid4().hex}.{file_extension}"
+        #         file_path = os.path.join(PRODUCT_IMAGE_DIR, image_filename)
+
+        #         with open(file_path, "wb") as image_data:
+        #             contents = await image_file.read()
+        #             image_data.write(contents)
+        #     except Exception as e:
+        #         raise HTTPException(500, detail=f"Erro ao salvar a imagem: {e}")
+
 
         # Parse dos atributos
         parsed_attributes = None
@@ -189,6 +203,11 @@ class ProductRouter(APIRouter):
                 await self.r2_service.delete_file(file_name)
             except Exception as e:
                 logging.warning(f"Não foi possível deletar imagem antiga: {str(e)}")
+                
+        # if product.image:
+        #     old_image_path = os.path.join(PRODUCT_IMAGE_DIR, product.image)
+        #     if os.path.exists(old_image_path):
+        #         os.remove(old_image_path)
 
         try:
             file_extension = image_file.filename.split(".")[-1].lower()
@@ -209,6 +228,26 @@ class ProductRouter(APIRouter):
             return product
         except Exception as e:
             raise HTTPException(500, detail=f"Erro ao atualizar imagem: {e}")
+        
+        # try:
+        #     file_extension = image_file.filename.split(".")[-1].lower()
+        #     image_filename = f"{uuid.uuid4().hex}.{file_extension}"
+        #     file_path = os.path.join(PRODUCT_IMAGE_DIR, image_filename)
+
+        #     with open(file_path, "wb") as image_data:
+        #         contents = await image_file.read()
+        #         image_data.write(contents)
+
+        #     product.image = image_filename
+        #     session.add(product)
+        #     session.commit()
+        #     session.refresh(product)
+        #     return product
+        # except Exception as e:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        #         detail=f"Erro ao salvar/atualizar a imagem: {e}",
+        #     )
         
     def delete_product(self, product_id: int, session: Session = Depends(db_session)):
         product = session.get(Product, product_id)
