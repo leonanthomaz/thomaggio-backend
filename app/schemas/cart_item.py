@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 from pydantic import BaseModel, conint
 
@@ -9,7 +9,9 @@ class CartItemBase(BaseModel):
     product_id: int
     quantity: conint(ge=1) = 1 # type: ignore
     size: str
-    selected_flavors: Optional[List[str]] = None  # aqui!
+    # selected_flavors: Optional[List[str]] = None
+    selected_flavors: Optional[List[Dict[str, Any]]] = None
+
     observation: Optional[str] = None  # novo campo
 
 class CartItemCreate(CartItemBase):

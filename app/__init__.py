@@ -40,8 +40,8 @@ def create_app():
     logging.info("Inicializando o banco de dados...")
     init_db()
 
-    origins = ["https://thomaggio.vercel.app", "https://thomaggio-dashboard.vercel.app"]
-    # origins = ["http://localhost:3000", "http://localhost:3001"]
+    # origins = ["https://thomaggio.vercel.app", "https://thomaggio-dashboard.vercel.app"]
+    origins = ["http://localhost:3000", "http://localhost:3001"]
 
     app.add_middleware(
         CORSMiddleware,

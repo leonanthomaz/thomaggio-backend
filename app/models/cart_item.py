@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 from sqlmodel import JSON, Column, SQLModel, Field, Relationship
 
@@ -16,7 +16,8 @@ class CartItem(SQLModel, table=True):
     size: Optional[str] = Field(default=None, index=True)
     observation: Optional[str] = Field(default=None, max_length=255)
 
-    selected_flavors: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    # selected_flavors: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    selected_flavors: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
     
     quantity: int = Field(default=1, ge=1)
     unit_price: float = Field(default=0.0, ge=0)

@@ -1,6 +1,8 @@
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
+from app.configuration.settings import Configuration
 from app.enums.cart import CartStatus
 from app.enums.order_status import OrderStatus
 from app.models.cart import Cart
@@ -13,9 +15,9 @@ from app.auth.auth import AuthRouter
 from app.database.connection import get_session
 from app.websockets.ws_manager import order_ws_manager
 
+Configuration()
 db_session = get_session
 get_current_user = AuthRouter().get_current_user
-
 
 class OrderRouter(APIRouter):
     def __init__(self, *args, **kwargs):
@@ -35,6 +37,7 @@ class OrderRouter(APIRouter):
         return orders
 
     async def create_order(self, order_request: OrderCreate, session: Session = Depends(db_session)):
+        logging.info(f"DADOS RECEBIDOS DA REQUISIÇÃO FRONTEND: >>> {order_request}")
         try:
             # 1. Criar ou recuperar usuário
             user = session.exec(
@@ -87,6 +90,11 @@ class OrderRouter(APIRouter):
 
             # 4. Criar itens do pedido
             for item in order_request.items:
+                
+                flavors = item.selected_flavors
+                if flavors is not None and not isinstance(flavors, list):
+                    raise ValueError("selected_flavors deve ser uma lista ou None")
+                
                 order_item = OrderItem(
                     product_id=item.product_id,
                     quantity=item.quantity,
@@ -94,6 +102,7 @@ class OrderRouter(APIRouter):
                     total_price=item.total_price,
                     size=item.size,
                     observation=item.observation,
+                    selected_flavors=item.selected_flavors,
                     order_id=order.id
                 )
                 session.add(order_item)

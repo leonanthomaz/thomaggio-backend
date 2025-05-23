@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel
+from typing import Any, Dict, Optional, List
+from pydantic import BaseModel, Field, validator
 from app.models.address import Address
 from app.schemas.address import AddressCreate, AddressRead
 from app.schemas.user import UserResponse  # Caso queira embutir o user no retorno (opcional)
@@ -19,7 +19,20 @@ class OrderItemCreate(BaseModel):
     unit_price: float
     total_price: float
     size: Optional[str] = None
+    # selected_flavors: Optional[List[str]] = None
+    selected_flavors: Optional[List[Dict[str, Any]]] = None
+
     observation: Optional[str] = None
+    
+    @validator('selected_flavors')
+    def validate_flavors(cls, v):
+        if v is not None:
+            for flavor in v:
+                if not isinstance(flavor, dict):
+                    raise ValueError("Cada sabor deve ser um dicionário")
+                if 'name' not in flavor or 'quantity' not in flavor:
+                    raise ValueError("Cada sabor deve ter 'name' e 'quantity'")
+        return v
 
 
 class OrderItemRead(BaseModel):
@@ -30,6 +43,10 @@ class OrderItemRead(BaseModel):
     total_price: float
     size: Optional[str]
     observation: Optional[str]
+    selected_flavors: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Lista de sabores selecionados com suas quantidades"
+    )
     created_at: datetime
 
     class Config:

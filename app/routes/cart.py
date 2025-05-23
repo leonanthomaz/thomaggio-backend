@@ -103,14 +103,15 @@ class CartRouter(APIRouter):
             session.commit()
             session.refresh(existing_item)
             return existing_item
-        
+                            
         if item_data.selected_flavors:
             for flavor in item_data.selected_flavors:
-                if flavor not in product.selected_flavors:
+                if flavor['name'] not in product.selected_flavors:
                     raise HTTPException(
                         status_code=400, 
-                        detail=f"Sabor '{flavor}' inválido para este produto"
+                        detail=f"Sabor '{flavor['name']}' inválido para este produto"
                     )
+
 
         new_item = CartItem(
             cart_id=cart.id,

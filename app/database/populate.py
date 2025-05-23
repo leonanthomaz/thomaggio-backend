@@ -96,6 +96,12 @@ def populate_default_category(session: Session):
         categories = [
             # default_category,
             Category(
+                name="Salgados",
+                description="Nossas melhores salgados",
+                is_active=True,
+                created_at=datetime.now(timezone.utc),
+            ),
+            Category(
                 name="Pizzas",
                 description="Nossas pizzas mais pedidas",
                 is_active=True,
@@ -165,6 +171,34 @@ def populate_products(session: Session, company_id: int):
             is_active=True,
             company_id=company_id,
             category_id=categorias.get("Bebidas"),
+        ),
+        Product(
+            name="Porção de 40 salgadinhos",
+            description="Melhores salgadinhos",
+            image=None,
+            size=["U"],
+            selected_flavors= ["Coxinha", "Risole de Carne", "Enroladinho", "Kibe", "Bolinha de Queijo"],
+            prices_by_size={"U": 36.0},
+            type="salgado",
+            rating=4.9,
+            reviews_count=150,
+            is_active=True,
+            company_id=company_id,
+            category_id=categorias.get("Salgados"),
+        ),
+        Product(
+            name="Porção de 50 salgadinhos",
+            description="Melhores salgadinhos",
+            image=None,
+            size=["U"],
+            selected_flavors= ["Coxinha", "Risole de Carne", "Risole de Palmito", "Kibe", "Queijo com Presunto"],
+            prices_by_size={"U": 45.0},
+            type="salgado",
+            rating=4.9,
+            reviews_count=150,
+            is_active=True,
+            company_id=company_id,
+            category_id=categorias.get("Salgados"),
         ),
     ]
 

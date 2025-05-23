@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from typing import Optional
-from sqlmodel import Field, Relationship, SQLModel
+from typing import Any, Dict, List, Optional
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 from typing import TYPE_CHECKING
 
@@ -20,6 +20,9 @@ class OrderItem(SQLModel, table=True):
     
     size: Optional[str] = None
     observation: Optional[str] = None
+    
+    # selected_flavors: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    selected_flavors: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON(none_as_null=True)))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = Field(default=None)
