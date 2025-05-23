@@ -35,6 +35,12 @@ class Configuration:
         self.db_dev_port = os.getenv("DB_DEV_PORT", "5432")
         self.db_dev_name = os.getenv("DB_DEV_NAME")
         
+        self.endpoint_url_r2 = os.getenv("ENDPOINT_CLOUDFLARE_R2")
+        self.aws_access_key_id_aws = os.getenv("AWS_ACCESS_KEY_ID")
+        self.aws_secret_access_key_aws = os.getenv("AWS_SECRET_ACCESS_KEY_ID")
+        self.r2_bucket_name = os.getenv("R2_BUCKET_NAME")
+        self.r2_url_public = os.getenv("ENDPOINT_PUBLIC_R2")
+        
         self.mercado_pago_key_test = os.getenv("MERCADO_PAGO_PUBLIC_KEY_TEST")
         self.mercado_pago_access_token_test = os.getenv("MERCADO_PAGO_ACCESS_TOKEN_TEST")
                     
