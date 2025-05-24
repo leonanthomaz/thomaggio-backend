@@ -7,7 +7,7 @@ from app.configuration.settings import Configuration
 
 Configuration()
 
-class ChatCache:
+class DataCache:
     def __init__(self):
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._expiry_times: Dict[str, datetime] = {}

@@ -5,6 +5,8 @@ import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Form
 from sqlmodel import Session
+from app.cache.cache import CacheManager
+from app.configuration.settings import Configuration
 from app.models.product import Product
 from app.models.category import Category
 from app.models.user import User
@@ -19,6 +21,9 @@ get_current_user = AuthRouter().get_current_user
 PRODUCT_IMAGE_DIR = "app/assets/img/product"
 os.makedirs(PRODUCT_IMAGE_DIR, exist_ok=True)
 
+Configuration()
+
+cache_manager = CacheManager()
 
 class ProductRouter(APIRouter):
     def __init__(self, *args, **kwargs):
@@ -147,6 +152,7 @@ class ProductRouter(APIRouter):
             price=price,
             category_id=category_id,
             image=image_url,
+            # image=image_filename,
             rating=rating,
             reviews_count=reviews_count,
             attributes=parsed_attributes,
@@ -162,10 +168,22 @@ class ProductRouter(APIRouter):
         session.add(product)
         session.commit()
         session.refresh(product)
+        await cache_manager.cache_data("product_data", {})
+        
         return product
 
-    def list_products(self, session: Session = Depends(db_session)):
-        return session.query(Product).all()
+    async def list_products(self, session: Session = Depends(db_session)):
+        """Lista todos os produtos (usando cache)"""
+        try:
+            data = await cache_manager.get_products_data(session)
+            # Retorne sempre a mesma estrutura - apenas o array de produtos
+            return data["products"]  # Ou data.products dependendo do seu schema
+        except Exception as e:
+            logging.error(f"Erro ao listar produtos: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao recuperar produtos"
+            )
 
     async def update_product(
         self,

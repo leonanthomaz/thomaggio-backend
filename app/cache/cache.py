@@ -1,16 +1,18 @@
 # app/cache/cache.py
 import logging
 from typing import Optional
-from app.utils.cache import ChatCache
+from app.models.category import Category
+from app.models.delivery_config import DeliveryConfig
+from app.schemas.product import ProductResponse
+from app.utils.cache import DataCache
 from sqlmodel import Session, select
 from app.models.company import Company
 from app.models.product import Product
-from app.models.category import Category
 
-cache = ChatCache()
+cache = DataCache()
 
 class CacheManager:
-    _cache_key_prefix = "chat_data_"
+    _cache_key_prefix = "main_data_"
     
     def __init__(self):
         self.cache = cache
@@ -33,20 +35,19 @@ class CacheManager:
         self.cache.set(cache_key, data, ttl=900)
         logging.info(f"Dados armazenados no cache com a chave: {cache_key}")
 
+ 
     async def get_company_data(self, session: Session) -> dict:
         """Obtém dados da empresa, usando cache quando possível"""
-        cache_key = "thomaggio"
+        cache_key = "company_data"
         cached = await self.load_cached_data(cache_key)
-        
+
         if cached:
-            # Sempre pega o status atualizado do banco
             chatbot_status = session.exec(select(Company.chatbot_status)).first()
             status = session.exec(select(Company.status)).first()
             cached["chatbot_status"] = chatbot_status.value if chatbot_status else "INACTIVE"
             cached["status"] = status.value if status else "OPEN"
             return cached
 
-        # Busca do banco se não estiver em cache
         company = session.exec(select(Company)).first()
         company_data = {
             "nome": company.name if company else "Empresa",
@@ -64,28 +65,43 @@ class CacheManager:
         await self.cache_data(cache_key, company_data)
         return company_data
 
+ 
     async def get_products_data(self, session: Session) -> dict:
-        """Obtém dados de produtos, usando cache quando possível"""
-        cache_key = "products_global"
+        """Obtém dados de produtos e categorias, usando cache quando possível"""
+        cache_key = "product_data"
         cached = await self.load_cached_data(cache_key)
         if cached:
             return cached
 
-        # Busca do banco se não estiver em cache
-        products = [{
-            "id": p.id,
-            "name": p.name,
-            "size": p.size,
-            "prices_by_size": p.prices_by_size,
-            "is_active": p.is_active,
-        } for p in session.exec(select(Product)).all()]
+        products = session.exec(select(Product)).all()
+        produtos_disponiveis = [
+            ProductResponse.model_validate(product).model_dump()
+            for product in products
+        ]
 
-        categories = [c.name for c in session.exec(select(Category).where(Category.is_active == True)).all()]
-        
-        products_data = {
-            "produtos_disponiveis": products,
-            "categorias_disponiveis": categories
+        categories = [
+            c.name for c in session.exec(select(Category).where(Category.is_active)).all()
+        ]
+
+        data = {
+            "products": produtos_disponiveis,
+            "categories": categories
         }
 
-        await self.cache_data(cache_key, products_data)
-        return products_data
+        await self.cache_data(cache_key, data)
+        return data
+
+
+    
+    async def get_delivery_config_data(self, session: Session) -> dict:
+        """Obtém dados de entrega, usando cache quando possível"""
+        cache_key = "delivery_data"
+        cached = await self.load_cached_data(cache_key)
+        if cached:
+            return cached
+
+        config = session.exec(select(DeliveryConfig)).first()
+        
+        await self.cache_data(cache_key, config.dict() if config else {})
+
+        return config.dict() if config else {}
