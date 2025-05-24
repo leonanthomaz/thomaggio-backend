@@ -1,3 +1,4 @@
+import os
 import uuid
 import json
 import logging
@@ -16,6 +17,9 @@ from app.storage.R2Service import R2Service
 
 db_session = get_session
 get_current_user = AuthRouter().get_current_user
+
+PRODUCT_IMAGE_DIR = "app/assets/img/product"
+os.makedirs(PRODUCT_IMAGE_DIR, exist_ok=True)
 
 Configuration()
 
@@ -60,23 +64,21 @@ class ProductRouter(APIRouter):
             category = session.get(Category, category_id)
             if not category:
                 raise HTTPException(status_code=400, detail="Categoria não encontrada")
-
-        image_url = None
+            
+        image_filename = None
         if image_file:
             try:
                 file_extension = image_file.filename.split(".")[-1].lower()
                 image_filename = f"{uuid.uuid4().hex}.{file_extension}"
-                contents = await image_file.read()
-                
-                # Upload para R2
-                image_url = await self.r2_service.upload_file(
-                    file_content=contents,
-                    file_name=image_filename,
-                    content_type=image_file.content_type
-                )
+                file_path = os.path.join(PRODUCT_IMAGE_DIR, image_filename)
+
+                with open(file_path, "wb") as image_data:
+                    contents = await image_file.read()
+                    image_data.write(contents)
             except Exception as e:
                 raise HTTPException(500, detail=f"Erro ao salvar a imagem: {e}")
-            
+
+
         # Parse dos atributos
         parsed_attributes = None
         try:
@@ -133,7 +135,7 @@ class ProductRouter(APIRouter):
             description=description,
             price=price,
             category_id=category_id,
-            image=image_url,
+            image=image_filename,
             rating=rating,
             reviews_count=reviews_count,
             attributes=parsed_attributes,
@@ -195,34 +197,31 @@ class ProductRouter(APIRouter):
         if not product:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-        # Se já existir uma imagem, deleta do R2
         if product.image:
-            try:
-                file_name = product.image.split('/')[-1]
-                await self.r2_service.delete_file(file_name)
-            except Exception as e:
-                logging.warning(f"Não foi possível deletar imagem antiga: {str(e)}")
-                
+            old_image_path = os.path.join(PRODUCT_IMAGE_DIR, product.image)
+            if os.path.exists(old_image_path):
+                os.remove(old_image_path)
+        
         try:
             file_extension = image_file.filename.split(".")[-1].lower()
             image_filename = f"{uuid.uuid4().hex}.{file_extension}"
-            contents = await image_file.read()
-            
-            # Upload para R2
-            image_url = await self.r2_service.upload_file(
-                file_content=contents,
-                file_name=image_filename,
-                content_type=image_file.content_type
-            )
+            file_path = os.path.join(PRODUCT_IMAGE_DIR, image_filename)
 
-            product.image = image_url
+            with open(file_path, "wb") as image_data:
+                contents = await image_file.read()
+                image_data.write(contents)
+
+            product.image = image_filename
             session.add(product)
             session.commit()
             session.refresh(product)
             return product
         except Exception as e:
-            raise HTTPException(500, detail=f"Erro ao atualizar imagem: {e}")
-                
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erro ao salvar/atualizar a imagem: {e}",
+            )
+        
     def delete_product(self, product_id: int, session: Session = Depends(db_session)):
         product = session.get(Product, product_id)
         if not product:
