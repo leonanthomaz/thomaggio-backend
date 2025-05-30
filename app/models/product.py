@@ -24,6 +24,7 @@ class Product(SQLModel, table=True):
     
     size: Optional[List[str]] = Field(default_factory=list, sa_column=Column(JSON))
     prices_by_size: Dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    old_prices_by_size: Optional[Dict[str, float]] = Field(default_factory=dict, sa_column=Column(JSON))
     
     type: Optional[ProductTypeEnum] = Field(default=ProductTypeEnum.geral, description="Subtipo do produto")
     
@@ -35,6 +36,9 @@ class Product(SQLModel, table=True):
     is_active: bool = Field(default=True)
     
     is_promotion: Optional[bool] = Field(default=False)
+    promotion_discount_percentage: Optional[float] = None  # ex: 20.0 pra 20%
+    promotion_start_at: Optional[datetime] = None
+    promotion_end_at: Optional[datetime] = None
 
     company_id: Optional[int] = Field(default=None, foreign_key="tb_company.id")
     company: Optional["Company"] = Relationship(back_populates="products")
@@ -44,6 +48,8 @@ class Product(SQLModel, table=True):
     category: Optional["Category"] = Relationship(back_populates="products")
 
     tags: Optional[List[dict]] = Field(default=[], sa_column=Column(JSON))
+    
+    deactivated_by_category: Optional[bool] = Field(default=False)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = Field(default=None)

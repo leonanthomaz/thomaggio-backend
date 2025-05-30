@@ -6,3 +6,4 @@ class CartStatus(str, Enum):
     COMPLETED = "completed"   # Pedido entregue
     CANCELLED = "cancelled"   # Cancelado manualmente
     EXPIRED = "expired"       # Abandonado/inativo por tempo demais
+    CLEARED = "cleared"       # Limpo pelo sistema, sem itens

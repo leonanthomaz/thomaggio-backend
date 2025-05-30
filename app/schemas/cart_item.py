@@ -9,18 +9,16 @@ class CartItemBase(BaseModel):
     product_id: int
     quantity: conint(ge=1) = 1 # type: ignore
     size: str
-    # selected_flavors: Optional[List[str]] = None
     selected_flavors: Optional[List[Dict[str, Any]]] = None
-
-    observation: Optional[str] = None  # novo campo
+    observation: Optional[str] = None
 
 class CartItemCreate(CartItemBase):
     pass
 
 
 class CartItemUpdate(BaseModel):
-    quantity: conint(ge=1) # type: ignore
-    observation: Optional[str] = None  # se quiser permitir atualizar observação também
+    quantity: conint(ge=1)
+    observation: Optional[str] = None
 
 
 class CartItemRead(CartItemBase):
@@ -29,6 +27,7 @@ class CartItemRead(CartItemBase):
     unit_price: float
     subtotal: float
     created_at: datetime
-
+    observation: Optional[str] = None
+    
     class Config:
         orm_mode = True

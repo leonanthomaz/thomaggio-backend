@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
+from sqlmodel import Session, update
 from app.models.category import Category
+from app.models.product import Product
 from app.models.user import User
 from app.auth.auth import AuthRouter
 from app.database.connection import get_session
@@ -46,11 +47,28 @@ class CategoryRouter(APIRouter):
         if not category:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria não encontrada")
 
+        is_deactivating = updated_category.is_active is False
+
         for key, value in updated_category.dict(exclude_unset=True).items():
             setattr(category, key, value)
 
-        category.updated_at = datetime.now(timezone.utc)  # Atualiza o campo updated_at
+        category.updated_at = datetime.now(timezone.utc)
         session.add(category)
+
+        if updated_category.is_active is False:
+            session.exec(
+                update(Product)
+                .where(Product.category_id == category_id)
+                .values(is_active=False, deactivated_by_category=True)
+            )
+        elif updated_category.is_active is True:
+            session.exec(
+                update(Product)
+                .where(Product.category_id == category_id, Product.deactivated_by_category == True)
+                .values(is_active=True, deactivated_by_category=False)
+            )
+
+
         session.commit()
         session.refresh(category)
         return category

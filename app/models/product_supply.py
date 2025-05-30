@@ -21,6 +21,5 @@ class ProductSupply(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # (opcional) Relacionamentos
     product: Optional["Product"] = Relationship(back_populates="supplies_used")
     supply: Optional["Supply"] = Relationship()

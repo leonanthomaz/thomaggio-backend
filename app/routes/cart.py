@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta, timezone
+import logging
 from typing import List
+from app.configuration.settings import Configuration
 from app.enums.cart import CartStatus
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
@@ -12,6 +13,7 @@ from app.database.connection import get_session
 from app.schemas.cart import CartCreate, CartUpdate, CartRead, CartList
 from app.schemas.cart_item import CartItemCreate, CartItemUpdate, CartItemRead
 
+Configuration()
 db_session = get_session
 get_current_user = AuthRouter().get_current_user
 
@@ -25,7 +27,6 @@ class CartRouter(APIRouter):
         self.add_api_route("/cart/{cart_code}", self.get_cart_by_code, methods=["GET"], response_model=CartRead)
         self.add_api_route("/cart/{cart_code}", self.update_cart_by_code, methods=["PUT"], response_model=CartRead)
         self.add_api_route("/cart/{cart_code}", self.delete_cart_by_code, methods=["DELETE"], response_model=dict)
-
         self.add_api_route("/cart/{cart_code}/items/", self.add_item_by_code, methods=["POST"], response_model=CartItemRead)
         self.add_api_route("/cart/{cart_code}/items/{item_id}", self.update_item_by_code, methods=["PATCH"], response_model=CartItemRead)
         self.add_api_route("/cart/{cart_code}/items/{item_id}/size/{size}", self.remove_item_by_code, methods=["DELETE"], response_model=dict)
@@ -75,6 +76,7 @@ class CartRouter(APIRouter):
         return {"message": "Carrinho deletado com sucesso"}
 
     def add_item_by_code(self, cart_code: str, item_data: CartItemCreate, session: Session = Depends(db_session)):
+        logging.info(f"DADOS VINDOS DO FRONTEND -> ITEM DATA: {item_data}")
         cart = session.exec(select(Cart).where(Cart.code == cart_code)).first()
         if not cart:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carrinho não encontrado")
@@ -94,7 +96,7 @@ class CartRouter(APIRouter):
             select(CartItem).where(
                 CartItem.cart_id == cart.id,
                 CartItem.product_id == item_data.product_id,
-                CartItem.size == item_data.size
+                CartItem.size == item_data.size,
             )
         ).first()
 
@@ -125,11 +127,13 @@ class CartRouter(APIRouter):
         session.add(new_item)
         
         # Atualiza status se ainda estiver ACTIVE
-        if cart.status == CartStatus.ACTIVE:
+        if cart.status == CartStatus.ACTIVE or cart.status == CartStatus.CLEARED:
             cart.status = CartStatus.PROCESSING
         
         session.commit()
         session.refresh(new_item)
+        
+        logging.info(f"Item adicionado ao carrinho {cart_code}: {new_item.id} - {new_item.product_id} - {new_item.size} - {new_item.quantity} >>> {new_item.observation}")
         return new_item
 
     def update_item_by_code(self, cart_code: str, item_id: int, update_data: CartItemUpdate, session: Session = Depends(db_session)):
@@ -192,7 +196,7 @@ class CartRouter(APIRouter):
             session.delete(item)
         
         if items:  # só marca como cancelado se tinha itens
-            cart.status = CartStatus.CANCELLED
+            cart.status = CartStatus.CLEARED
         
         session.commit()
       

@@ -67,12 +67,35 @@ class CacheManager:
 
  
     async def get_products_data(self, session: Session) -> dict:
-        """Obtém dados de produtos e categorias, usando cache quando possível"""
+        """Obtém dados de produtos e categorias, usando cache apenas se nada foi alterado."""
         cache_key = "product_data"
         cached = await self.load_cached_data(cache_key)
+        
         if cached:
-            return cached
-
+            # Busca os IDs e updated_at dos produtos no banco
+            db_products_info = session.exec(
+                select(Product.id, Product.is_active, Product.updated_at)
+                .where(Product.id.in_([p["id"] for p in cached["products"]]))
+            ).all()
+            
+            # Verifica se algum produto foi atualizado desde o cache
+            cache_is_valid = True
+            for db_prod in db_products_info:
+                cached_prod = next((p for p in cached["products"] if p["id"] == db_prod.id), None)
+                
+                # Se o produto não existe mais no cache ou foi atualizado, invalida o cache
+                if not cached_prod or cached_prod.get("updated_at") != db_prod.updated_at:
+                    cache_is_valid = False
+                    break
+            
+            # Se o cache ainda é válido, atualiza apenas o `is_active` e retorna
+            if cache_is_valid:
+                is_active_lookup = {prod.id: prod.is_active for prod in db_products_info}
+                for p in cached["products"]:
+                    p["is_active"] = is_active_lookup.get(p["id"], False)
+                return cached
+        
+        # Se o cache é inválido ou não existe, busca tudo do zero
         products = session.exec(select(Product)).all()
         produtos_disponiveis = [
             ProductResponse.model_validate(product).model_dump()

@@ -14,9 +14,9 @@ class CartItem(SQLModel, table=True):
     cart_id: int = Field(foreign_key="tb_cart.id")
     product_id: int = Field(foreign_key="tb_product.id")
     size: Optional[str] = Field(default=None, index=True)
+    
     observation: Optional[str] = Field(default=None, max_length=255)
 
-    # selected_flavors: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     selected_flavors: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
     
     quantity: int = Field(default=1, ge=1)

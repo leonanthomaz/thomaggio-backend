@@ -13,3 +13,4 @@ from .cart import Cart
 from .cart_item import CartItem
 from .payment import Payment
 from .chat import Chat
+from .promocode import PromoCode

@@ -21,7 +21,6 @@ class OrderItem(SQLModel, table=True):
     size: Optional[str] = None
     observation: Optional[str] = None
     
-    # selected_flavors: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     selected_flavors: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON(none_as_null=True)))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -1,9 +1,12 @@
+# app/routes/product.py
+
+from datetime import datetime, timezone
 import os
 import uuid
 import json
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Form
+from fastapi import APIRouter, Body, Depends, HTTPException, status, UploadFile, Form
 from sqlmodel import Session
 from app.cache.cache import CacheManager
 from app.configuration.settings import Configuration
@@ -31,6 +34,9 @@ class ProductRouter(APIRouter):
         self.r2_service = R2Service()
         self.add_api_route("/products/", self.list_products, methods=["GET"], response_model=List[ProductResponse])
         self.add_api_route("/products/", self.create_product, methods=["POST"], response_model=ProductResponse)
+        self.add_api_route("/products/clear-expired-promotions", self.clear_expired_promotions, methods=["POST"],response_model=dict)
+        self.add_api_route("/products/{product_id}/clear-product-promotion", self.clear_product_promotion, methods=["POST"],response_model=dict)
+        self.add_api_route("/products/{product_id}/set-promotion", self.set_promotion, methods=["POST"], response_model=ProductResponse)
         self.add_api_route("/products/{product_id}", self.get_product, methods=["GET"], response_model=ProductResponse)
         self.add_api_route("/products/{product_id}", self.update_product, methods=["PUT"], response_model=ProductResponse)
         self.add_api_route("/products/{product_id}", self.delete_product, methods=["DELETE"], response_model=dict)
@@ -148,6 +154,7 @@ class ProductRouter(APIRouter):
         )
 
         product = Product.from_orm(product_data)
+        product.updated_at = datetime.now(timezone.utc)
         session.add(product)
         session.commit()
         session.refresh(product)
@@ -181,7 +188,11 @@ class ProductRouter(APIRouter):
         product_data = product_update.dict(exclude_unset=True)
         for key, value in product_data.items():
             setattr(product, key, value)
-
+            
+        if(product.deleted_at):
+            product.deleted_at = None
+        
+        product.updated_at = datetime.now(timezone.utc)
         session.add(product)
         session.commit()
         session.refresh(product)
@@ -212,6 +223,7 @@ class ProductRouter(APIRouter):
                 image_data.write(contents)
 
             product.image = image_filename
+            product.updated_at = datetime.now(timezone.utc)
             session.add(product)
             session.commit()
             session.refresh(product)
@@ -221,6 +233,88 @@ class ProductRouter(APIRouter):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Erro ao salvar/atualizar a imagem: {e}",
             )
+   
+    async def set_promotion(
+        self,
+        product_id: int,
+        discount_percentage: float = Body(..., gt=0, lt=100),
+        start_at: datetime = Body(...),
+        end_at: datetime = Body(...),
+        session: Session = Depends(db_session),
+    ):
+        product = session.get(Product, product_id)
+        if not product:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+        # Guarda o original se ainda não estiver guardado
+        if product.prices_by_size:
+            product.old_prices_by_size = product.prices_by_size.copy()
+
+            product.prices_by_size = {
+                k: round(v * (1 - discount_percentage / 100), 2)
+                for k, v in product.prices_by_size.items()
+            }
+
+        # Aplica o desconto
+        if product.prices_by_size:
+            product.prices_by_size = {
+                k: round(v * (1 - discount_percentage / 100), 2)
+                for k, v in product.prices_by_size.items()
+            }
+
+        product.is_promotion = True
+        product.promotion_discount_percentage = discount_percentage
+        product.promotion_start_at = start_at
+        product.promotion_end_at = end_at
+        product.updated_at = datetime.now(timezone.utc)
+
+        session.add(product)
+        session.commit()
+        session.refresh(product)
+        return product
+  
+    def clear_product_promotion(self, product_id: int, session: Session = Depends(db_session)):
+        product = session.get(Product, product_id)
+        if not product:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado")
+
+        if not product.is_promotion:
+            return {"message": "Produto não possui promoção ativa."}
+
+        # Restaura preços antigos
+        if product.old_prices_by_size:
+            product.prices_by_size = product.old_prices_by_size
+            product.old_prices_by_size = None
+
+        product.is_promotion = False
+        product.promotion_discount_percentage = None
+        product.promotion_start_at = None
+        product.promotion_end_at = None
+        product.updated_at = datetime.now(timezone.utc)
+
+        session.add(product)
+        session.commit()
+        session.refresh(product)
+
+        return {"message": f"Promoção do produto {product_id} removida com sucesso"}
+
+    def clear_expired_promotions(self, session: Session = Depends(db_session)):
+        """Limpa promoções expiradas manualmente."""
+        now = datetime.now(timezone.utc)
+        products = session.query(Product).filter(
+            Product.promotion_end_at != None,
+            Product.promotion_end_at < now
+        ).all()
+
+        for product in products:
+            product.promotion_discount_percentage = None
+            product.promotion_start_at = None
+            product.promotion_end_at = None
+            product.updated_at = datetime.now(timezone.utc)
+            session.add(product)
+
+        session.commit()
+        return {"message": f"{len(products)} promoções expiradas removidas com sucesso."}
         
     def delete_product(self, product_id: int, session: Session = Depends(db_session)):
         product = session.get(Product, product_id)
@@ -228,6 +322,8 @@ class ProductRouter(APIRouter):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado")
 
         product.is_active = False
+        product.updated_at = datetime.now(timezone.utc)
+        product.deleted_at = datetime.now(timezone.utc)
         session.add(product)
         session.commit()
         session.refresh(product)

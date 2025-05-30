@@ -22,11 +22,45 @@ class Payment(SQLModel, table=True):
     status: PaymentStatus = Field(default=PaymentStatus.PENDING, sa_column=Column(Enum(PaymentStatus), nullable=False))
 
     paid_at: Optional[datetime] = Field(default=None)
-    
+    expires_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = Field(default=None)
 
     order: Optional["Order"] = Relationship()
 
+    class Config:
+        from_attributes = True
+
+    @property
+    def paid_at_utc(self) -> Optional[datetime]:
+        if self.paid_at is None:
+            return None
+        if self.paid_at.tzinfo is None:
+            return self.paid_at.replace(tzinfo=timezone.utc)
+        return self.paid_at.astimezone(timezone.utc)
+
+    @property
+    def expires_at_utc(self) -> Optional[datetime]:
+        if self.expires_at is None:
+            return None
+        if self.expires_at.tzinfo is None:
+            return self.expires_at.replace(tzinfo=timezone.utc)
+        return self.expires_at.astimezone(timezone.utc)
+
+    @property
+    def created_at_utc(self) -> datetime:
+        if self.created_at.tzinfo is None:
+            return self.created_at.replace(tzinfo=timezone.utc)
+        return self.created_at.astimezone(timezone.utc)
+
+    @property
+    def updated_at_utc(self) -> Optional[datetime]:
+        if self.updated_at is None:
+            return None
+        if self.updated_at.tzinfo is None:
+            return self.updated_at.replace(tzinfo=timezone.utc)
+        return self.updated_at.astimezone(timezone.utc)
+
+    
     class Config:
         from_attributes = True

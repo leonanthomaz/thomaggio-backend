@@ -8,10 +8,7 @@ from app.models.supply import Supply
 from app.schemas.product_supply import ProductSupplyCreate, ProductSupplyUpdate, ProductSupplyRead, ProductWithSuppliesRead
 from app.database.connection import get_session
 
-# Configuração de logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-# Instância do session maker
 db_session = get_session
 
 class ProductSupplyRouter(APIRouter):

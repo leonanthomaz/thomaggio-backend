@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app.configuration.settings import Configuration
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
-from app.functions.scheduler import start_scheduler
+from app.functions.scheduler.scheduler import start_scheduler
 
 from app.auth.auth import AuthRouter
 from app.admin.users import AdminRouter
@@ -25,7 +25,6 @@ from app.routes.payment import PaymentRouter
 from app.websockets import routes as websocket_routes
 
 configuration = Configuration()
-# start_scheduler()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logging.info(f"Ambiente carregado: {configuration.environment}")

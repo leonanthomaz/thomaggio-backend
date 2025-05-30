@@ -29,7 +29,7 @@ class UserRouter(APIRouter):
         user = User(
             name=user_data.name,
             username=user_data.username,
-            password_hash=user_data.password,  # Nota: Você deve hashear a senha!
+            password_hash=user_data.password,
             email=user_data.email,
             phone=user_data.phone,
             company_id=user_data.company_id,

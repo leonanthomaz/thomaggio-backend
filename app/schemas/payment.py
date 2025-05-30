@@ -17,6 +17,7 @@ class PaymentResponse(BaseModel):
     status: PaymentStatus
     transaction_code: Optional[str]
     paid_at: Optional[datetime]
+    expires_at: Optional[datetime]
     created_at: datetime
     updated_at: Optional[datetime]
 

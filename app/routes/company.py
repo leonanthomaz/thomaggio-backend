@@ -8,10 +8,7 @@ from app.schemas.chat_status import ChatbotStatusUpdate, StatusResponse
 from app.schemas.company import CompanyStatusResponse, CompanyStatusUpdate, CompanyUpdate
 from app.database.connection import get_session
 
-# Configuração de logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-# Inicializa a instância do DatabaseManager
 db_session = get_session
 
 class CompanyRouter(APIRouter):

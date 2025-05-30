@@ -24,18 +24,15 @@ class Order(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    # Relacionamento com usuário (obrigatório)
     user_id: int = Field(foreign_key="tb_user.id")
     user: "User" = Relationship(back_populates="orders")
 
     code: str = Field(default_factory=generate_order_code, index=True, unique=True)
     
-    # Dados do cliente (podem ser removidos se sempre usarmos user_id)
     customer_name: Optional[str] = None  
     phone: Optional[str] = None        
     whatsapp_id: Optional[str] = None
 
-    # Dados do pedido
     status: OrderStatus = Field(default=OrderStatus.PENDING, sa_column=Column(Enum(OrderStatus), nullable=False))
     
     table_number: Optional[int] = None      
@@ -43,16 +40,13 @@ class Order(SQLModel, table=True):
     delivery_fee: float = Field(default=0.0)
     total_amount: float = Field(default=0.0)
     
-    # Endereço de entrega (relacionamento opcional)
     delivery_address_id: Optional[int] = Field(default=None, foreign_key="tb_address.id")
     delivery_address: Optional["Address"] = Relationship()
 
-    # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
 
-    # Relacionamento com os itens
     items: List["OrderItem"] = Relationship(back_populates="order")
 
     class Config:
