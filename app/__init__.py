@@ -50,10 +50,8 @@ def create_app():
     )
     
     app.include_router(HomeRouter())
-
     app.include_router(AuthRouter())
     app.include_router(AdminRouter())
-
     app.include_router(CompanyRouter())
     app.include_router(UserRouter())
     app.include_router(ProductRouter())
@@ -65,7 +63,6 @@ def create_app():
     app.include_router(DeliveryRouter())
     app.include_router(TokenStatusRouter())
     app.include_router(PaymentRouter())
-
     app.include_router(websocket_routes.router)
 
     return app
