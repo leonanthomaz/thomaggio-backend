@@ -61,9 +61,11 @@ class ProductRouter(APIRouter):
         selected_flavors: Optional[str] = Form(None),
         attributes: Optional[str] = Form(None),
         prices_by_size: Optional[str] = Form(None),
+        options: Optional[str] = Form(None),
         is_active: bool = Form(True),
         current_user: User = Depends(get_current_user),
         session: Session = Depends(db_session),
+        types: List[str] = Form(...),
     ):
         category = None
         if category_id:
@@ -135,6 +137,19 @@ class ProductRouter(APIRouter):
         except Exception as e:
             logging.exception("Erro ao interpretar prices_by_size")
             raise HTTPException(400, detail=f"Preços por tamanho inválidos: {e}")
+        
+        # Parse das opções
+        parsed_options = None
+        try:
+            if options:
+                parsed_options = json.loads(options)
+                if not isinstance(parsed_options, dict):
+                    raise ValueError("options deve ser um dicionário.")
+                if not all(isinstance(v, (int, float)) for v in parsed_options.values()):
+                    raise ValueError("Todos os valores de options devem ser numéricos.")
+        except Exception as e:
+            logging.exception("Erro ao interpretar options")
+            raise HTTPException(400, detail=f"Options inválidas: {e}")
 
         product_data = ProductCreate(
             name=name,
@@ -148,9 +163,10 @@ class ProductRouter(APIRouter):
             size=parsed_size,
             selected_flavors=parsed_flavors,
             prices_by_size=parsed_prices,
+            options=parsed_options,
             is_active=is_active,
             company_id=current_user.company_id,
-            type="geral",
+            types=types,
         )
 
         product = Product.from_orm(product_data)
@@ -186,16 +202,20 @@ class ProductRouter(APIRouter):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado")
 
         product_data = product_update.dict(exclude_unset=True)
+
         for key, value in product_data.items():
             setattr(product, key, value)
-            
-        if(product.deleted_at):
-            product.deleted_at = None
-        
+
+        if 'is_promotion' in product_data and not product_data['is_promotion']:
+            product.promotion_discount_percentage = None
+            product.promotion_start_at = None
+            product.promotion_end_at = None
+
         product.updated_at = datetime.now(timezone.utc)
         session.add(product)
         session.commit()
         session.refresh(product)
+
         return product
 
     async def update_product_image(

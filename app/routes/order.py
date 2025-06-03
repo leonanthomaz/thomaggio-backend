@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +10,7 @@ from app.models.cart import Cart
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.address import Address
+from app.models.promocode import PromoCode
 from app.schemas.order import OrderCreate, OrderUpdate, OrderRead, StatusUpdateRequest
 from app.models.user import User
 from app.auth.auth import AuthRouter
@@ -72,6 +74,47 @@ class OrderRouter(APIRouter):
             session.commit()
             session.refresh(address)
 
+            # --- VALIDAÇÃO DO PROMOCODE AQUI ---
+            discount_value = 0.0
+            promo_code_upper = order_request.promo_code.upper() if order_request.promo_code else None
+
+            if promo_code_upper:
+                promo = session.exec(
+                    select(PromoCode).where(PromoCode.code == promo_code_upper)
+                ).first()
+
+                if not promo:
+                    raise HTTPException(status_code=400, detail="Código promocional inválido")
+
+                now = datetime.now()
+                if not promo.is_active or promo.valid_from > now or promo.valid_until < now:
+                    raise HTTPException(status_code=400, detail="Código promocional não está ativo")
+
+                if promo.max_uses and promo.current_uses >= promo.max_uses:
+                    raise HTTPException(status_code=400, detail="Código promocional atingiu o limite de uso")
+
+                if promo.min_order_value and order_request.total_amount < promo.min_order_value:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Valor mínimo para usar esse cupom é {promo.min_order_value}"
+                    )
+
+                # Calcula desconto
+                discount_value = order_request.total_amount * (promo.discount_percentage / 100)
+
+                # Atualiza contador de uso
+                promo.current_uses += 1
+                session.add(promo)
+                session.commit()
+
+            # Calcula o total final com desconto aplicado (não deixa negativo)
+            total_after_discount = max(order_request.total_amount - discount_value, 0)
+
+            if order_request.payment_method == "cash" and order_request.cash_amount_given:
+                cash_change_for = order_request.cash_amount_given - total_after_discount
+            else:
+                cash_change_for = None
+
             # 3. Criar pedido
             order = Order(
                 user_id=user.id,
@@ -80,9 +123,12 @@ class OrderRouter(APIRouter):
                 delivery_address_id=address.id,
                 payment_method=order_request.payment_method,
                 delivery_fee=order_request.delivery_fee,
-                total_amount=order_request.total_amount,
+                total_amount=total_after_discount,
+                discount_code=promo_code_upper,
+                discount_value=discount_value,
                 whatsapp_id=order_request.whatsapp_id,
-                status=OrderStatus.PENDING
+                status=OrderStatus.PENDING,
+                cash_change_for=cash_change_for
             )
             session.add(order)
             session.commit()
@@ -90,7 +136,6 @@ class OrderRouter(APIRouter):
 
             # 4. Criar itens do pedido
             for item in order_request.items:
-                
                 flavors = item.selected_flavors
                 if flavors is not None and not isinstance(flavors, list):
                     raise ValueError("selected_flavors deve ser uma lista ou None")
@@ -106,7 +151,8 @@ class OrderRouter(APIRouter):
                     order_id=order.id
                 )
                 session.add(order_item)
-                
+
+            # Atualiza status do carrinho, se houver
             if order_request.cart_code:
                 cart = session.exec(select(Cart).where(Cart.code == order_request.cart_code)).first()
                 if cart:
@@ -128,7 +174,7 @@ class OrderRouter(APIRouter):
         except Exception as e:
             session.rollback()
             raise HTTPException(status_code=400, detail=str(e))
-    
+
     async def get_order(self, code: str, session: Session = Depends(db_session)):
         order = session.exec(select(Order).where(Order.code == code)).first()
         if not order:
@@ -136,11 +182,6 @@ class OrderRouter(APIRouter):
 
         order.items = session.exec(select(OrderItem).where(OrderItem.order_id == order.id)).all()
         
-        # await order_ws_manager.broadcast({
-        #     "type": "new_order",
-        #     "order": OrderRead.model_validate(order).model_dump(mode="json")
-        # })
-
         return order
 
     async def update_order(

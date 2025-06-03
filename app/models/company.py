@@ -31,6 +31,10 @@ class Company(SQLModel, table=True):
     status: CompanyStatus = Field(default=CompanyStatus.OPEN, sa_column=Column(Enum(CompanyStatus), nullable=False))
     chatbot_status: ChatbotStatus = Field(default=ChatbotStatus.ACTIVE, sa_column=Column(Enum(ChatbotStatus), nullable=False))
 
+    min_order_value: Optional[float] = Field(default=None, description="Valor minimo requerido")
+    pickup_enabled: bool = Field(default=True)
+    delivery_fee_default: Optional[float] = Field(default=0.0)
+
     users: List["User"] = Relationship(back_populates="company")
     products: List["Product"] = Relationship(back_populates="company")
     supply: List["Supply"] = Relationship(back_populates="company")

@@ -1,6 +1,6 @@
 # app/functions/scheduler.py
 from apscheduler.schedulers.background import BackgroundScheduler
-from app.functions.cart.cart import expire_old_carts, delete_expired_carts
+from app.functions.cart.cart_jobs import expire_old_carts, delete_expired_carts
 from app.functions.payment.payments_expired import cancel_expired_payments
 from app.functions.product.discount import clear_expired_promotions
 from app.functions.render.ping import keep_alive_ping

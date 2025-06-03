@@ -5,14 +5,19 @@ import jwt
 import bcrypt
 import os
 
+from app.configuration.settings import Configuration
 from app.database.connection import get_session
 from app.models.company import Company
 from app.models.user import User
 from app.schemas.auth import EmailResetRequest, PasswordResetRequest, Token, AuthCredentials
 from app.services.email import EmailService
 
+configuration = Configuration()
+
 SECRET_KEY = os.getenv("SECRET_KEY", "UmaVezFlamengoSempreFlamengo")
-JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", 1))
+# JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", 24))
+
+JWT_EXPIRATION_HOURS=configuration.jwt_expiration_hours
 
 db_session = get_session
 email_service = EmailService()

@@ -13,17 +13,18 @@ class ProductBase(BaseModel):
     reviews_count: Optional[int] = 0
     size: Optional[List[str]] = None  
     selected_flavors: Optional[List[str]] = None
+    options: Optional[Dict[str, float]] = None 
     prices_by_size: Optional[Dict[str, float]] = None  
     old_prices_by_size: Optional[Dict[str, float]] = None  
     attributes: Optional[Dict[str, List[str]]] = None
     is_active: bool = True
-    is_promotion: Optional[bool] = True
+    is_promotion: Optional[bool] = None
     promotion_discount_percentage: Optional[float] = None
     promotion_start_at: Optional[datetime] = None
     promotion_end_at: Optional[datetime] = None
     category_id: Optional[int] = None
     company_id: Optional[int] = None
-    type: Optional[str] = "geral"
+    types: List[str] = Field(default_factory=list)
     deactivated_by_category: Optional[bool] = None
 
 class ProductCreate(ProductBase):
@@ -40,9 +41,10 @@ class ProductUpdate(BaseModel):
     reviews_count: Optional[int] = None
     size: Optional[List[str]] = None
     selected_flavors: Optional[List[str]] = None
+    options: Optional[Dict[str, float]] = None 
     prices_by_size: Optional[Dict[str, float]] = None
     old_prices_by_size: Optional[Dict[str, float]] = None 
-    is_promotion: Optional[bool] = True
+    is_promotion: Optional[bool] = None
     promotion_discount_percentage: Optional[float] = None
     promotion_start_at: Optional[datetime] = None
     promotion_end_at: Optional[datetime] = None
@@ -50,7 +52,7 @@ class ProductUpdate(BaseModel):
     is_active: Optional[bool] = None
     category_id: Optional[int] = None
     company_id: Optional[int] = None
-    type: Optional[str] = None
+    types: Optional[List[str]] = None
     deactivated_by_category: Optional[bool] = None
 
 class ProductResponse(ProductBase):

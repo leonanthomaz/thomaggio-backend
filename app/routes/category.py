@@ -29,7 +29,8 @@ class CategoryRouter(APIRouter):
         category = Category(
             name=category_request.name,
             description=category_request.description,
-            is_active=category_request.is_active
+            is_active=category_request.is_active,
+            allowed_types=category_request.allowed_types
         )
         session.add(category)
         session.commit()

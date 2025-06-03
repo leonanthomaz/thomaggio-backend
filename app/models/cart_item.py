@@ -18,6 +18,13 @@ class CartItem(SQLModel, table=True):
     observation: Optional[str] = Field(default=None, max_length=255)
 
     selected_flavors: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
+    options: Optional[Dict[str, float]] = Field(default_factory=dict, sa_column=Column(JSON))
+    
+    min_flavors: Optional[int] = Field(default=None, description="Minimo de sabores a escolher")
+    max_flavors: Optional[int] = Field(default=None, description="Maximo de sabores a escolher")
+
+    flavors_required: bool = Field(default=False, description="Obrigatoriedade de sabores")
+    options_required: bool = Field(default=False, description="Obrigatoriedade de opções")
     
     quantity: int = Field(default=1, ge=1)
     unit_price: float = Field(default=0.0, ge=0)
@@ -29,4 +36,6 @@ class CartItem(SQLModel, table=True):
 
     @property
     def subtotal(self) -> float:
-        return self.quantity * self.unit_price
+        options_total = sum(self.options.values()) if self.options else 0.0
+        total_unit_price = self.unit_price + options_total
+        return self.quantity * total_unit_price

@@ -1,9 +1,9 @@
 from datetime import datetime
 from typing import Any, Dict, Optional, List
+from app.enums.payment_status import PaymentStatus
 from pydantic import BaseModel, Field, validator
 from app.models.address import Address
-from app.schemas.address import AddressCreate, AddressRead
-from app.schemas.user import UserResponse  # Caso queira embutir o user no retorno (opcional)
+from app.schemas.address import AddressRead
 from app.models.order import OrderStatus  # ou de onde você declarou esse Enum
 
 # --- CUSTOMER (cache opcional no pedido) ---
@@ -21,6 +21,7 @@ class OrderItemCreate(BaseModel):
     size: Optional[str] = None
     # selected_flavors: Optional[List[str]] = None
     selected_flavors: Optional[List[Dict[str, Any]]] = None
+    
 
     observation: Optional[str] = None
     
@@ -64,6 +65,9 @@ class OrderCreate(BaseModel):
     table_number: Optional[int] = None
     whatsapp_id: Optional[str] = None
     cart_code: Optional[str] = None  # Para pedidos de carrinho (opcional)
+    cash_change_for: Optional[float] = None
+    cash_amount_given: Optional[float] = None
+    promo_code: Optional[str] = None
 
 
 # --- ORDER UPDATE ---
@@ -76,6 +80,8 @@ class OrderUpdate(BaseModel):
     table_number: Optional[int] = None
     whatsapp_id: Optional[str] = None
     updated_at: Optional[datetime] = None
+    cash_change_for: Optional[float] = None
+    promo_code: Optional[str] = None
     
 class StatusUpdateRequest(BaseModel):
     status: OrderStatus
@@ -98,6 +104,8 @@ class OrderRead(BaseModel):
     items: List[OrderItemRead]
     created_at: datetime
     updated_at: Optional[datetime]
+    cash_change_for: Optional[float] = None
+    promo_code: Optional[str] = None
 
     class Config:
         from_attributes = True

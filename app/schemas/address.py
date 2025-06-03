@@ -27,6 +27,7 @@ class AddressCreate(AddressBase):
     is_company_address: bool = False
 
 class AddressUpdate(BaseModel):
+    id: Optional[int] = None
     street: Optional[str] = Field(default=None, min_length=1)
     number: Optional[str] = Field(default=None, min_length=1)
     neighborhood: Optional[str] = Field(default=None, min_length=1)

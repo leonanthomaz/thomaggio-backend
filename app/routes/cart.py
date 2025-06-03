@@ -122,7 +122,8 @@ class CartRouter(APIRouter):
             size=item_data.size,
             selected_flavors=item_data.selected_flavors,
             unit_price=unit_price,
-            observation=item_data.observation 
+            observation=item_data.observation,
+            options=item_data.options
         )
         session.add(new_item)
         
@@ -153,6 +154,9 @@ class CartRouter(APIRouter):
 
         if update_data.observation is not None:
             item.observation = update_data.observation
+            
+        if update_data.options is not None:
+            item.options = update_data.options
     
         item.quantity = update_data.quantity
         session.commit()

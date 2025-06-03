@@ -11,7 +11,8 @@ class CartItemBase(BaseModel):
     size: str
     selected_flavors: Optional[List[Dict[str, Any]]] = None
     observation: Optional[str] = None
-
+    options: Optional[Dict[str, float]] = None
+    
 class CartItemCreate(CartItemBase):
     pass
 
@@ -19,7 +20,7 @@ class CartItemCreate(CartItemBase):
 class CartItemUpdate(BaseModel):
     quantity: conint(ge=1)
     observation: Optional[str] = None
-
+    options: Optional[Dict[str, float]] = None
 
 class CartItemRead(CartItemBase):
     id: int
@@ -28,6 +29,7 @@ class CartItemRead(CartItemBase):
     subtotal: float
     created_at: datetime
     observation: Optional[str] = None
+    options: Optional[Dict[str, float]] = None
     
     class Config:
         orm_mode = True

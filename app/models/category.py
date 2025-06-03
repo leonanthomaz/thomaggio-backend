@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, List
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, JSON, Column
 
 from typing import TYPE_CHECKING
 
@@ -15,6 +15,8 @@ class Category(SQLModel, table=True):
     description: Optional[str] = None 
     
     is_active: bool = Field(default=True)
+    
+    allowed_types: List[str] = Field(default=[], sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = Field(default=None)

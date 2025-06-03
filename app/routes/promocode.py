@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -8,6 +9,7 @@ from app.configuration.settings import Configuration
 from app.database.connection import get_session
 from app.models.promocode import PromoCode
 from app.models.user import User
+from app.schemas.promocode import PromoCodeCreate, PromoCodeResponse, PromoCodeUpdate
 
 Configuration()
 db_session = get_session
@@ -18,8 +20,9 @@ class PromoCodeRouter(APIRouter):
         super().__init__(*args, **kwargs)
 
         self.add_api_route("/promocode/", self.list_promocodes, methods=["GET"], response_model=List[PromoCode])
+        self.add_api_route("/promocode/", self.create_promocode, methods=["POST"], response_model=PromoCodeResponse)
+
         self.add_api_route("/promocode/{promo_id}", self.get_promocode, methods=["GET"], response_model=PromoCode)
-        self.add_api_route("/promocode/", self.create_promocode, methods=["POST"], response_model=PromoCode)
         self.add_api_route("/promocode/{promo_id}", self.update_promocode, methods=["PUT"], response_model=PromoCode)
         self.add_api_route("/promocode/{promo_id}", self.delete_promocode, methods=["DELETE"], response_model=dict)
 
@@ -33,13 +36,28 @@ class PromoCodeRouter(APIRouter):
             raise HTTPException(status_code=404, detail="PromoCode não encontrado")
         return promo
 
-    async def create_promocode(self, promocode: PromoCode, current_user: User = Depends(get_current_user), session: Session = Depends(db_session)):
-        session.add(promocode)
+    async def create_promocode(
+        self, 
+        promocode: PromoCodeCreate, 
+        current_user: User = Depends(get_current_user), 
+        session: Session = Depends(db_session)
+    ):
+        logging.info(f"DADOS PROMOCIONAIS VINDOS DO FRONTEND : {promocode}")
+        
+        db_promo = PromoCode(**promocode.dict())
+        
+        session.add(db_promo)
         session.commit()
-        session.refresh(promocode)
-        return promocode
+        session.refresh(db_promo)
+        return db_promo
 
-    async def update_promocode(self, promo_id: int, promocode_data: PromoCode, current_user: User = Depends(get_current_user), session: Session = Depends(db_session)):
+    async def update_promocode(
+        self, 
+        promo_id: int, 
+        promocode_data: PromoCodeUpdate, 
+        current_user: User = Depends(get_current_user), 
+        session: Session = Depends(db_session)
+    ):
         db_promo = session.get(PromoCode, promo_id)
         if not db_promo:
             raise HTTPException(status_code=404, detail="PromoCode não encontrado")

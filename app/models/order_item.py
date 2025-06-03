@@ -22,9 +22,11 @@ class OrderItem(SQLModel, table=True):
     observation: Optional[str] = None
     
     selected_flavors: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON(none_as_null=True)))
+    options: Optional[Dict[str, float]] = Field(default_factory=dict, sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = Field(default=None)
+    deleted_at: Optional[datetime] = Field(default=None)
 
     order: "Order" = Relationship(back_populates="items")
     product: Optional["Product"] = Relationship()

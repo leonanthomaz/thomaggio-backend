@@ -2,8 +2,11 @@ from datetime import datetime, timezone
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
 
+from app.models.address import Address
 from app.models.company import Company
+from app.schemas.address import AddressUpdate
 from app.schemas.chat_status import ChatbotStatusUpdate, StatusResponse
 from app.schemas.company import CompanyStatusResponse, CompanyStatusUpdate, CompanyUpdate
 from app.database.connection import get_session
@@ -38,25 +41,48 @@ class CompanyRouter(APIRouter):
         return company
 
     def update_company(self, company: CompanyUpdate, session: Session = Depends(db_session)):
-        """
-        Atualiza os dados de uma empresa existente.
-        """
         db_company = session.exec(select(Company).where(Company.id == 1)).first()
+        
         if not db_company:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa não encontrada.")
+            raise HTTPException(status_code=404, detail="Company not found")
 
-        # Atualiza os atributos da empresa com base na entrada do cliente
-        for key, value in company.dict(exclude_unset=True).items():
+        # Atualiza campos simples
+        update_data = company.model_dump(exclude_unset=True, exclude={"addresses"})
+        for key, value in update_data.items():
             setattr(db_company, key, value)
 
-        # Atualiza o campo updated_at com a data e hora atuais
-        db_company.updated_at = datetime.now(timezone.utc)
+        # Atualiza endereços
+        if company.addresses is not None:
+            old_addresses = {addr.id: addr for addr in db_company.addresses or []}
+            new_addresses = []
+            
+            for addr_data in company.addresses:
+                if addr_data.id and addr_data.id in old_addresses:
+                    # Atualiza endereço existente
+                    addr_obj = old_addresses.pop(addr_data.id)
+                    update_addr_data = addr_data.model_dump(exclude_unset=True)
+                    for k, v in update_addr_data.items():
+                        setattr(addr_obj, k, v)
+                    new_addresses.append(addr_obj)
+                else:
+                    # Cria novo endereço
+                    new_addr = AddressUpdate(**addr_data.model_dump(exclude_unset=True))
+                    new_addr.company_id = db_company.id
+                    new_addresses.append(new_addr)
+            
+            # Remove endereços não enviados
+            for addr_to_del in old_addresses.values():
+                session.delete(addr_to_del)
+            
+            db_company.addresses = new_addresses
 
+        db_company.updated_at = datetime.now(timezone.utc)
         session.add(db_company)
         session.commit()
         session.refresh(db_company)
-
+        
         return db_company
+
 
     async def chatbot_read_status(self, session: Session = Depends(db_session)) -> StatusResponse:
         """Lê o status atual do chatbot"""

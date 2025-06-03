@@ -27,12 +27,7 @@ class Cart(SQLModel, table=True):
     status: CartStatus = Field(default=CartStatus.ACTIVE)
 
     items: List["CartItem"] = Relationship(back_populates="cart")
-    
-    discount_code: Optional[str] = Field(default=None, index=True)
-    discount_percentage: Optional[float] = Field(default=None)
-    discount_value: Optional[float] = Field(default=None)
-    discount_description: Optional[str] = Field(default=None)
-    
+        
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = None

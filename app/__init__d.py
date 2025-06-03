@@ -22,6 +22,7 @@ from app.routes.product_supply import ProductSupplyRouter
 from app.routes.delivery import DeliveryRouter
 from app.routes.token_status import TokenStatusRouter
 from app.routes.payment import PaymentRouter
+from app.routes.promocode import PromoCodeRouter
 
 from app.websockets import routes as websocket_routes
 
@@ -70,6 +71,7 @@ def create_app():
     app.include_router(DeliveryRouter())
     app.include_router(TokenStatusRouter())
     app.include_router(PaymentRouter())
+    app.include_router(PromoCodeRouter())
 
     app.include_router(websocket_routes.router)
 

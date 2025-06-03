@@ -161,7 +161,6 @@ class PaymentRouter(APIRouter):
             session.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-
     async def handle_webhook(self, request: Request, session: Session = Depends(db_session)):
         try:
             body = await request.json()
@@ -196,6 +195,19 @@ class PaymentRouter(APIRouter):
 
             payment.updated_at = datetime.now(timezone.utc)
             session.add(payment)
+            
+            payment.updated_at = datetime.now(timezone.utc)
+            session.add(payment)
+
+            # order = session.exec(
+            #     select(Order).where(Order.id == payment.order_id)
+            # ).first()
+
+            # if order:
+            #     order.payment_status = payment.status
+            #     order.updated_at = datetime.now(timezone.utc)
+            #     session.add(order)
+
             session.commit()
 
             return {"status": "ok"}

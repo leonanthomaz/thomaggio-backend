@@ -17,6 +17,8 @@ class Configuration:
         # Configurações do ambiente e banco de dados
         self.environment = os.getenv("ENVIRONMENT", "development").lower()
         
+        self.jwt_expiration_hours = int(os.getenv("JWT_EXPIRATION_HOURS", 24))
+        
         # Email
         self.email_user = os.getenv("EMAIL_USER")
         self.email_password = os.getenv("EMAIL_PASSWORD")

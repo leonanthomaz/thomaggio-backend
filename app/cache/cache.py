@@ -35,7 +35,6 @@ class CacheManager:
         self.cache.set(cache_key, data, ttl=900)
         logging.info(f"Dados armazenados no cache com a chave: {cache_key}")
 
- 
     async def get_company_data(self, session: Session) -> dict:
         """Obtém dados da empresa, usando cache quando possível"""
         cache_key = "company_data"
@@ -65,7 +64,6 @@ class CacheManager:
         await self.cache_data(cache_key, company_data)
         return company_data
 
- 
     async def get_products_data(self, session: Session) -> dict:
         """Obtém dados de produtos e categorias, usando cache apenas se nada foi alterado."""
         cache_key = "product_data"
@@ -113,8 +111,6 @@ class CacheManager:
 
         await self.cache_data(cache_key, data)
         return data
-
-
     
     async def get_delivery_config_data(self, session: Session) -> dict:
         """Obtém dados de entrega, usando cache quando possível"""

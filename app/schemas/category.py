@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -6,6 +6,7 @@ class CategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
     is_active: Optional[bool] = True
+    allowed_types: Optional[List[str]] = None
 
 class CategoryCreate(CategoryBase):
     pass

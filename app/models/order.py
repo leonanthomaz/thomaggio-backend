@@ -5,6 +5,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy import Column, Enum
 
 from app.enums.order_status import OrderStatus
+from app.enums.payment_status import PaymentStatus
 from app.models.address import Address
 from app.utils.hash_utils import generate_hash
 
@@ -40,6 +41,14 @@ class Order(SQLModel, table=True):
     delivery_fee: float = Field(default=0.0)
     total_amount: float = Field(default=0.0)
     
+    discount_code: Optional[str] = Field(default=None, index=True)
+    discount_percentage: Optional[float] = Field(default=None)
+    discount_value: Optional[float] = Field(default=None)
+    discount_description: Optional[str] = Field(default=None) 
+    
+    cash_change_for: Optional[float] = Field(default=None, description="Valor informado pelo cliente para troco se o pagamento for em dinheiro")
+    payment_status: PaymentStatus = Field(default=PaymentStatus.PENDING, sa_column=Column(Enum(PaymentStatus), nullable=False))
+    
     delivery_address_id: Optional[int] = Field(default=None, foreign_key="tb_address.id")
     delivery_address: Optional["Address"] = Relationship()
 
@@ -48,6 +57,6 @@ class Order(SQLModel, table=True):
     deleted_at: Optional[datetime] = None
 
     items: List["OrderItem"] = Relationship(back_populates="order")
-
+    
     class Config:
         from_attributes = True
