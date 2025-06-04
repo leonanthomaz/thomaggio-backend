@@ -165,13 +165,23 @@ class PaymentRouter(APIRouter):
         try:
             body = await request.json()
 
+            print("Webhook recebido:", body)
+
             if body.get("type") != "payment":
                 return {"status": "ignored"}
 
             payment_id = body.get("data", {}).get("id")
-            result = sdk.payment().get(payment_id)
-            mp_payment = result["response"]
 
+            if not payment_id:
+                return {"status": "no_payment_id"}
+
+            try:
+                result = sdk.payment().get(payment_id)
+            except Exception as e:
+                print(f"Erro ao buscar pagamento {payment_id}: {e}")
+                return {"status": "payment_not_found"}
+
+            mp_payment = result.get("response")
             transaction_code = str(mp_payment["id"])
             status = mp_payment["status"]
 
@@ -181,7 +191,7 @@ class PaymentRouter(APIRouter):
 
             if not payment:
                 return {"status": "not_found"}
-            
+
             if payment.expires_at and payment.expires_at < datetime.now(timezone.utc):
                 return {"status": "expired"}
 
@@ -195,23 +205,12 @@ class PaymentRouter(APIRouter):
 
             payment.updated_at = datetime.now(timezone.utc)
             session.add(payment)
-            
-            payment.updated_at = datetime.now(timezone.utc)
-            session.add(payment)
-
-            # order = session.exec(
-            #     select(Order).where(Order.id == payment.order_id)
-            # ).first()
-
-            # if order:
-            #     order.payment_status = payment.status
-            #     order.updated_at = datetime.now(timezone.utc)
-            #     session.add(order)
-
             session.commit()
 
             return {"status": "ok"}
 
         except Exception as e:
             session.rollback()
+            print(f"Erro interno no webhook: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+

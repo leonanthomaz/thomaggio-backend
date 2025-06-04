@@ -30,6 +30,12 @@ class Product(SQLModel, table=True):
     selected_flavors: Optional[List[str]] = Field(default=[], sa_column=Column(JSON))
     
     options: Optional[Dict[str, float]] = Field(default_factory=dict, sa_column=Column(JSON))
+    
+    min_flavors: Optional[int] = Field(default=None, description="Minimo de sabores a escolher")
+    max_flavors: Optional[int] = Field(default=None, description="Maximo de sabores a escolher")
+
+    flavors_required: bool = Field(default=False, description="Obrigatoriedade de sabores")
+    options_required: bool = Field(default=False, description="Obrigatoriedade de opções")
 
     rating: Optional[float] = Field(default=0.0)
     reviews_count: Optional[int] = Field(default=0)
