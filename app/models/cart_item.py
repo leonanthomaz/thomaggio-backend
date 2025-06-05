@@ -19,7 +19,7 @@ class CartItem(SQLModel, table=True):
 
     selected_flavors: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
     options: Optional[Dict[str, float]] = Field(default_factory=dict, sa_column=Column(JSON))
-        
+    
     quantity: int = Field(default=1, ge=1)
     unit_price: float = Field(default=0.0, ge=0)
 
