@@ -185,6 +185,11 @@ class PaymentRouter(APIRouter):
                 return {"status": "payment_not_found"}
 
             mp_payment = result.get("response")
+
+            if not mp_payment:
+                logging.info(f"Pagamento {payment_id} não encontrado")
+                return {"status": "payment_not_found"}
+
             transaction_code = str(mp_payment["id"])
             status = mp_payment["status"]
 
@@ -214,9 +219,9 @@ class PaymentRouter(APIRouter):
 
         except Exception as e:
             session.rollback()
-            logging.info(f"Erro interno ao gerar PIX -> {e}")
-            raise HTTPException(status_code=500, detail=str(e))
-        
+            logging.error(f"Erro interno no webhook -> {e}")
+            return {"status": "internal_error", "detail": str(e)}
+
     def generate_card_payment(self, data: PaymentRequest, session: Session = Depends(db_session)):
         try:
             order = session.exec(select(Order).where(Order.id == data.order_id)).first()
