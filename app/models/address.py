@@ -11,8 +11,8 @@ class Address(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    street: str  # Obrigatório
-    number: str  # Obrigatório
+    street: str
+    number: str
     complement: str
     neighborhood: str
     zip_code: str
@@ -29,6 +29,8 @@ class Address(SQLModel, table=True):
     company: Optional["Company"] = Relationship(back_populates="addresses")
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True

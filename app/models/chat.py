@@ -29,5 +29,7 @@ class Chat(SQLModel, table=True):
     # Estado do fluxo (pode conter carrinho, escolhas, etc)
     context_json: Optional[Dict] = Field(default={}, sa_column=Column(JSON, nullable=False))
     
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    deleted_at: Optional[datetime] = None
 

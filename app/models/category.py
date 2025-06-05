@@ -14,6 +14,8 @@ class Category(SQLModel, table=True):
     name: str = Field(index=True) 
     description: Optional[str] = None 
     
+    products: List["Product"] = Relationship(back_populates="category")
+    
     is_active: bool = Field(default=True)
     
     allowed_types: List[str] = Field(default=[], sa_column=Column(JSON))
@@ -22,7 +24,6 @@ class Category(SQLModel, table=True):
     updated_at: Optional[datetime] = Field(default=None)
     deleted_at: Optional[datetime] = Field(default=None)
 
-    products: List["Product"] = Relationship(back_populates="category")
 
     class Config:
         from_attributes = True

@@ -6,8 +6,6 @@ from pydantic import validator
 
 from typing import TYPE_CHECKING
 
-from app.enums.product_type import ProductTypeEnum
-
 if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.company import Company

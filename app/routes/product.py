@@ -35,6 +35,7 @@ class ProductRouter(APIRouter):
         self.add_api_route("/products/{product_id}/set-promotion", self.set_promotion, methods=["POST"], response_model=ProductResponse)
         self.add_api_route("/products/{product_id}", self.get_product, methods=["GET"], response_model=ProductResponse)
         self.add_api_route("/products/{product_id}", self.update_product, methods=["PUT"], response_model=ProductResponse)
+        self.add_api_route("/products/inactive/{product_id}", self.inactive_product, methods=["PUT"], response_model=dict)
         self.add_api_route("/products/{product_id}", self.delete_product, methods=["DELETE"], response_model=dict)
         self.add_api_route("/products/{product_id}/image", self.update_product_image, methods=["POST"], response_model=ProductResponse)
 
@@ -59,6 +60,10 @@ class ProductRouter(APIRouter):
         prices_by_size: Optional[str] = Form(None),
         options: Optional[str] = Form(None),
         is_active: bool = Form(True),
+        min_flavors: Optional[int] = Form(None),
+        max_flavors: Optional[int] = Form(None),
+        flavors_required: Optional[bool] = Form(None),
+        options_required: Optional[bool] = Form(None),
         current_user: User = Depends(get_current_user),
         session: Session = Depends(db_session),
         types: List[str] = Form(...),
@@ -148,12 +153,15 @@ class ProductRouter(APIRouter):
         except Exception as e:
             logging.exception("Erro ao interpretar options")
             raise HTTPException(400, detail=f"Options inválidas: {e}")
+        
+        
 
         product_data = ProductCreate(
             name=name,
             description=description,
             price=price,
             category_id=category_id,
+            category=category,
             image=image_url,
             rating=rating,
             reviews_count=reviews_count,
@@ -165,9 +173,14 @@ class ProductRouter(APIRouter):
             is_active=is_active,
             company_id=current_user.company_id,
             types=types,
+            max_flavors= max_flavors,
+            min_flavors=min_flavors,
+            flavors_required=flavors_required,
+            options_required=options_required,
         )
 
         product = Product.from_orm(product_data)
+        product.updated_at = datetime.now(timezone.utc)
         session.add(product)
         session.commit()
         session.refresh(product)
@@ -207,6 +220,7 @@ class ProductRouter(APIRouter):
             product.promotion_start_at = None
             product.promotion_end_at = None
 
+        product.updated_at = datetime.now(timezone.utc)
         session.add(product)
         session.commit()
         session.refresh(product)
@@ -332,11 +346,11 @@ class ProductRouter(APIRouter):
         session.commit()
         return {"message": f"{len(products)} promoções expiradas removidas com sucesso."}
         
-    def delete_product(self, product_id: int, session: Session = Depends(db_session)):
+    def inactive_product(self, product_id: int, session: Session = Depends(db_session)):
         product = session.get(Product, product_id)
         if not product:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado")
-
+        
         product.is_active = False
         product.updated_at = datetime.now(timezone.utc)
         product.deleted_at = datetime.now(timezone.utc)
@@ -344,4 +358,12 @@ class ProductRouter(APIRouter):
         session.commit()
         session.refresh(product)
         return {"message": f"Produto com ID {product_id} inativado com sucesso"}
-                
+
+    def delete_product(self, product_id: int, session: Session = Depends(db_session)):
+        product = session.get(Product, product_id)
+        if not product:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado")
+
+        session.delete(product)
+        session.commit()
+        return {"message": f"Produto com ID {product_id} excluído permanentemente"}

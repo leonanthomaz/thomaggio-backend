@@ -110,6 +110,7 @@ class AuthRouter(APIRouter):
                 "closing_time": company.closing_time,
                 "working_days": company.working_days,
                 "contact_email": company.contact_email,
+                "privacy_policy_version": company.privacy_policy_version,
                 "logo_url": company.logo_url,
                 "created_at": company.created_at,
                 "updated_at": company.updated_at,

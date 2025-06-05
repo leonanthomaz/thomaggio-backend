@@ -39,6 +39,8 @@ class Company(SQLModel, table=True):
     products: List["Product"] = Relationship(back_populates="company")
     supply: List["Supply"] = Relationship(back_populates="company")
     addresses: Optional[List["Address"]] = Relationship(back_populates="company")
+    
+    privacy_policy_version: Optional[str] = Field(default="1.0.0", description="Versão da política de privacidade")
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = Field(default=None)

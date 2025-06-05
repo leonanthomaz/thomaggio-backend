@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
+from app.configuration.settings import Configuration
 from app.database.connection import get_session
 from app.auth.auth import AuthRouter
 from app.models.order import Order
@@ -10,6 +12,7 @@ from app.schemas.payment import PaymentRequest, PaymentResponse
 from app.enums.payment_status import PaymentStatus
 from app.api.mercadopago import sdk
 
+Configuration()
 db_session = get_session
 get_current_user = AuthRouter().get_current_user
 
@@ -109,7 +112,7 @@ class PaymentRouter(APIRouter):
                 "description": f"Pagamento do pedido #{order.id}, Código: {order.code}",
                 "payment_method_id": "pix",
                 "payer": {
-                    "email": f"pix_cliente_{order.id}@seudominio.com",
+                    "email": f"pizzariathomaggio@gmail.com", # no-reply@seudominio.com
                     "phone": {
                         "area_code": order.phone[:2],
                         "number": order.phone[2:]
@@ -165,7 +168,7 @@ class PaymentRouter(APIRouter):
         try:
             body = await request.json()
 
-            print("Webhook recebido:", body)
+            logging.info(f"Webhook recebido: {body}")
 
             if body.get("type") != "payment":
                 return {"status": "ignored"}
@@ -178,7 +181,7 @@ class PaymentRouter(APIRouter):
             try:
                 result = sdk.payment().get(payment_id)
             except Exception as e:
-                print(f"Erro ao buscar pagamento {payment_id}: {e}")
+                logging.info(f"Erro ao buscar pagamento {payment_id} - {e}")
                 return {"status": "payment_not_found"}
 
             mp_payment = result.get("response")
@@ -211,6 +214,96 @@ class PaymentRouter(APIRouter):
 
         except Exception as e:
             session.rollback()
-            print(f"Erro interno no webhook: {e}")
+            logging.info(f"Erro interno ao gerar PIX -> {e}")
             raise HTTPException(status_code=500, detail=str(e))
+        
+    def generate_card_payment(self, data: PaymentRequest, session: Session = Depends(db_session)):
+        try:
+            order = session.exec(select(Order).where(Order.id == data.order_id)).first()
+            if not order:
+                raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+            # Verifica se já existe pagamento pendente
+            existing_payment = session.exec(
+                select(Payment).where(
+                    Payment.order_id == data.order_id,
+                    Payment.status == PaymentStatus.PENDING,
+                    Payment.method == "card"
+                )
+            ).first()
+
+            now_utc = datetime.now(timezone.utc)
+
+            if existing_payment:
+                expires_at = existing_payment.expires_at
+                if expires_at:
+                    expires_at = self.make_aware(expires_at)
+                    if expires_at > now_utc:
+                        raise HTTPException(status_code=409, detail="Já existe um pagamento pendente e válido para este pedido")
+                # Cancela pagamento antigo
+                existing_payment.status = PaymentStatus.CANCELED
+                existing_payment.updated_at = now_utc
+                session.add(existing_payment)
+                session.commit()
+
+            # Prepara dados do pagador
+            full_name = order.customer_name.strip()
+            parts = full_name.split(" ", 1)
+            first_name = parts[0]
+            last_name = parts[1] if len(parts) > 1 else ""
+
+            # Cria pagamento via Mercado Pago
+            body = {
+                "transaction_amount": data.amount,
+                "token": data.token,  # <<< Importante: token do cartão gerado no frontend
+                "description": f"Pagamento do pedido #{order.id}, Código: {order.code}",
+                "installments": data.installments or 1,
+                "payment_method_id": data.payment_method_id,  # "visa", "master", etc.
+                "payer": {
+                    "email": f"cartao_cliente_{order.id}@seudominio.com",
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "identification": {
+                        "type": "CPF",
+                        "number": data.document_number
+                    }
+                },
+                "capture": True  # Captura automática
+            }
+
+            result = sdk.payment().create(body)
+            response = result["response"]
+
+            if response.get("status") not in ["approved", "in_process", "pending"]:
+                raise HTTPException(status_code=400, detail="Erro ao processar pagamento com cartão")
+
+            expires_at = now_utc + timedelta(minutes=10)  # Cartão: pode ser mais longo
+
+            # Salva no banco
+            payment = Payment(
+                order_id=data.order_id,
+                method="card",
+                amount=data.amount,
+                transaction_code=str(response["id"]),
+                status=PaymentStatus.PENDING if response.get("status") != "approved" else PaymentStatus.PAID,
+                expires_at=expires_at
+            )
+
+            if payment.status == PaymentStatus.PAID:
+                payment.paid_at = now_utc
+
+            session.add(payment)
+            session.commit()
+            session.refresh(payment)
+
+            return {
+                "payment_id": response["id"],
+                "status": response["status"],
+                "status_detail": response.get("status_detail")
+            }
+
+        except Exception as e:
+            session.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
 

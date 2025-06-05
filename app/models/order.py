@@ -33,6 +33,7 @@ class Order(SQLModel, table=True):
     customer_name: Optional[str] = None  
     phone: Optional[str] = None        
     whatsapp_id: Optional[str] = None
+    is_whatsapp: Optional[bool] = None
 
     status: OrderStatus = Field(default=OrderStatus.PENDING, sa_column=Column(Enum(OrderStatus), nullable=False))
     
@@ -51,7 +52,10 @@ class Order(SQLModel, table=True):
     
     delivery_address_id: Optional[int] = Field(default=None, foreign_key="tb_address.id")
     delivery_address: Optional["Address"] = Relationship()
-
+    
+    privacy_policy_version: Optional[str] = None
+    privacy_policy_accepted_at: Optional[datetime] = None
+    
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None

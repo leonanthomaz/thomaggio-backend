@@ -19,13 +19,7 @@ class CartItem(SQLModel, table=True):
 
     selected_flavors: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
     options: Optional[Dict[str, float]] = Field(default_factory=dict, sa_column=Column(JSON))
-    
-    min_flavors: Optional[int] = Field(default=None, description="Minimo de sabores a escolher")
-    max_flavors: Optional[int] = Field(default=None, description="Maximo de sabores a escolher")
-
-    flavors_required: bool = Field(default=False, description="Obrigatoriedade de sabores")
-    options_required: bool = Field(default=False, description="Obrigatoriedade de opções")
-    
+        
     quantity: int = Field(default=1, ge=1)
     unit_price: float = Field(default=0.0, ge=0)
 
@@ -33,6 +27,8 @@ class CartItem(SQLModel, table=True):
     product: Optional["Product"] = Relationship()
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
 
     @property
     def subtotal(self) -> float:

@@ -23,12 +23,13 @@ def populate_company(session: Session) -> Company:
         "description": "Pizzaria Thomaggio, a melhor pizza da cidade",
         "industry": "Pizzaria",
         "cnpj": "12.345.678/0001-99",
-        "phone": "(21) 99809-0928",
+        "phone": "(21) 99835-9326",
         "website": "https://thomaggio.vercel.app",
         "opening_time": time(18, 0),
         "closing_time": time(23, 0),
-        "working_days": ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"],
+        "working_days": ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"],
         "status": CompanyStatus.OPEN,
+        "privacy_policy_version": "1.0.0",
         "contact_email": "contato@thomaggio.com",
         "logo_url": "https://thomaggio.vercel.app/logo.png",
         "social_media_links": {
@@ -51,7 +52,7 @@ def populate_admin_user(session: Session, company_id: int):
     user = session.exec(select(User).where(User.username == admin_username)).first()
     if not user:
         user_data = {
-            "name": "Leonan Thomaz",
+            "name": "Leonan",
             "username": admin_username,
             "email": "leonan.thomaz@gmail.com",
             "company_id": company_id,
@@ -71,7 +72,7 @@ def populate_admin_user(session: Session, company_id: int):
             street="Rua Antonio Nunes",
             company_id=1,
             number="1",
-            complement="B",
+            complement="F",
             neighborhood="Alto da Boa Vista",
             reference="Próximo ao Parque Nacional da Tijuca",
             city="Rio de Janeiro",
@@ -113,7 +114,7 @@ def populate_default_category(session: Session):
                 name="Bebidas",
                 description="Bebidas geladas para acompanhar",
                 is_active=True,
-                allowed_types=["refrigerante", "cerveja"],
+                allowed_types=["refrigerante", "suco", "cerveja"],
                 created_at=datetime.now(timezone.utc),
             ),
         ]
@@ -129,7 +130,7 @@ def populate_products(session: Session, company_id: int):
 
     # Pega categorias pelo nome
     categorias = {
-        cat.name: cat.id for cat in session.exec(select(Category)).all()
+        cat.name: cat for cat in session.exec(select(Category)).all()
     }
 
     produtos = [
@@ -145,7 +146,9 @@ def populate_products(session: Session, company_id: int):
             reviews_count=10,
             is_active=True,
             company_id=company_id,
-            category_id=categorias.get("Pizzas"),
+            category=categorias.get("Pizzas"),
+            flavors_required=False,
+            options_required=False
         ),
         Product(
             name="Pizza de Mussarela",
@@ -159,7 +162,9 @@ def populate_products(session: Session, company_id: int):
             reviews_count=32,
             is_active=True,
             company_id=company_id,
-            category_id=categorias.get("Pizzas"),
+            category=categorias.get("Pizzas"),
+            flavors_required=False,
+            options_required=False
         ),
         Product(
             name="Pizza de Chocolate",
@@ -173,7 +178,9 @@ def populate_products(session: Session, company_id: int):
             reviews_count=32,
             is_active=True,
             company_id=company_id,
-            category_id=categorias.get("Pizzas"),
+            category=categorias.get("Pizzas"),
+            flavors_required=False,
+            options_required=False
         ),
         Product(
             name="Coca-Cola 2L",
@@ -187,21 +194,26 @@ def populate_products(session: Session, company_id: int):
             reviews_count=150,
             is_active=True,
             company_id=company_id,
-            category_id=categorias.get("Bebidas"),
+            category=categorias.get("Bebidas"),
+            flavors_required=False,
+            options_required=False
+
         ),
         Product(
-            name="Brahma Latão",
+            name="Guaraná Antártica",
             description="Bebida gelada",
             stock=20,
             image=None,
             size=["U"],
-            prices_by_size={"U": 13.0},
-            types=["cerveja"],
+            prices_by_size={"U": 11.0},
+            types=["refrigerante"],
             rating=4.9,
             reviews_count=150,
             is_active=True,
             company_id=company_id,
-            category_id=categorias.get("Bebidas"),
+            category=categorias.get("Bebidas"),
+            flavors_required=False,
+            options_required=False
         ),
         Product(
             name="Porção de 40 salgadinhos",
@@ -215,7 +227,12 @@ def populate_products(session: Session, company_id: int):
             reviews_count=25,
             is_active=True,
             company_id=company_id,
-            category_id=categorias.get("Salgados"),
+            category=categorias.get("Salgados"),
+            min_flavors=3,
+            max_flavors=5,
+            flavors_required=True,
+            options_required=False
+
         ),
         Product(
             name="Porção de 50 salgadinhos",
@@ -229,7 +246,11 @@ def populate_products(session: Session, company_id: int):
             reviews_count=31,
             is_active=True,
             company_id=company_id,
-            category_id=categorias.get("Salgados"),
+            category=categorias.get("Salgados"),
+            min_flavors=5,
+            max_flavors=10,
+            flavors_required=True,
+            options_required=False
         ),
     ]
 

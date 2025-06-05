@@ -83,7 +83,6 @@ class CompanyRouter(APIRouter):
         
         return db_company
 
-
     async def chatbot_read_status(self, session: Session = Depends(db_session)) -> StatusResponse:
         """Lê o status atual do chatbot"""
         try:

@@ -23,6 +23,7 @@ class Supply(SQLModel, table=True):
     company: Optional["Company"] = Relationship(back_populates="supply")
 
     is_active: bool = Field(default=True) 
+    
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = Field(default=None)
     deleted_at: Optional[datetime] = Field(default=None)

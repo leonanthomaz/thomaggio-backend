@@ -128,7 +128,10 @@ class OrderRouter(APIRouter):
                 discount_value=discount_value,
                 whatsapp_id=order_request.whatsapp_id,
                 status=OrderStatus.PENDING,
-                cash_change_for=cash_change_for
+                cash_change_for=cash_change_for,
+                is_whatsapp=order_request.is_whatsapp,
+                privacy_policy_version=order_request.privacy_policy_version,
+                privacy_policy_accepted_at=order_request.privacy_policy_accepted_at
             )
             session.add(order)
             session.commit()

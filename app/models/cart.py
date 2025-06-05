@@ -28,11 +28,14 @@ class Cart(SQLModel, table=True):
 
     items: List["CartItem"] = Relationship(back_populates="cart")
         
-    # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
-
+    
+    delivery_fee: Optional[float] = None
+    delivery_neighborhood: Optional[str] = None
+    
+    
     @property
     def total(self) -> float:
         return sum(item.subtotal for item in self.items or [])

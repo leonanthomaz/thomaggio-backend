@@ -20,6 +20,8 @@ class ProductSupply(SQLModel, table=True):
     unit: str  
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: Optional[datetime] = Field(default=None)
+    deleted_at: Optional[datetime] = Field(default=None)
 
     product: Optional["Product"] = Relationship(back_populates="supplies_used")
     supply: Optional["Supply"] = Relationship()

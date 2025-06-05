@@ -23,6 +23,8 @@ class CompanyBase(BaseModel):
     working_days: Optional[List[str]] = None
     social_media_links: Optional[Dict[str, str]] = None
     
+    privacy_policy_version: Optional[str]
+    
     chatbot_status: ChatbotStatus = Field(default=ChatbotStatus.ACTIVE)
     status: CompanyStatus = Field(default=CompanyStatus.OPEN)
 

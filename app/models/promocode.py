@@ -18,6 +18,7 @@ class PromoCode(SQLModel, table=True):
     
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
+    deleted_at: Optional[datetime] = Field(default=None)
     
     class Config:
         from_attributes = True

@@ -19,10 +19,7 @@ class OrderItemCreate(BaseModel):
     unit_price: float
     total_price: float
     size: Optional[str] = None
-    # selected_flavors: Optional[List[str]] = None
     selected_flavors: Optional[List[Dict[str, Any]]] = None
-    
-
     observation: Optional[str] = None
     
     @validator('selected_flavors')
@@ -64,11 +61,13 @@ class OrderCreate(BaseModel):
     total_amount: float
     table_number: Optional[int] = None
     whatsapp_id: Optional[str] = None
-    cart_code: Optional[str] = None  # Para pedidos de carrinho (opcional)
+    cart_code: Optional[str] = None
     cash_change_for: Optional[float] = None
     cash_amount_given: Optional[float] = None
     promo_code: Optional[str] = None
-
+    is_whatsapp: Optional[bool] = None
+    privacy_policy_version: Optional[str]
+    privacy_policy_accepted_at: datetime
 
 # --- ORDER UPDATE ---
 class OrderUpdate(BaseModel):
@@ -106,6 +105,10 @@ class OrderRead(BaseModel):
     updated_at: Optional[datetime]
     cash_change_for: Optional[float] = None
     promo_code: Optional[str] = None
+    is_whatsapp: Optional[bool] = None
+    privacy_policy_version: Optional[str]
+    privacy_policy_accepted_at: Optional[datetime]
 
+    
     class Config:
         from_attributes = True

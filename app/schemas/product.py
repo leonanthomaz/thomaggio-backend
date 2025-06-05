@@ -2,6 +2,9 @@ from datetime import datetime
 from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 
+from app.models.category import Category
+from app.schemas.category import CategoryRead
+
 class ProductBase(BaseModel):
     name: str = Field(..., max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
@@ -26,6 +29,10 @@ class ProductBase(BaseModel):
     company_id: Optional[int] = None
     types: List[str] = Field(default_factory=list)
     deactivated_by_category: Optional[bool] = None
+    min_flavors: Optional[int] = None
+    max_flavors: Optional[int] = None
+    flavors_required: Optional[bool] = False
+    options_required: Optional[bool] = False
 
 class ProductCreate(ProductBase):
     pass
@@ -54,6 +61,10 @@ class ProductUpdate(BaseModel):
     company_id: Optional[int] = None
     types: Optional[List[str]] = None
     deactivated_by_category: Optional[bool] = None
+    min_flavors: Optional[int] = None
+    max_flavors: Optional[int] = None
+    flavors_required: Optional[bool] = None
+    options_required: Optional[bool] = None
 
 class ProductResponse(ProductBase):
     id: int
@@ -63,6 +74,11 @@ class ProductResponse(ProductBase):
     prices_by_size: Optional[Dict[str, float]] = None
     old_prices_by_size: Optional[Dict[str, float]] = None 
     deactivated_by_category: Optional[bool] = None
+    min_flavors: Optional[int] = None
+    max_flavors: Optional[int] = None
+    flavors_required: Optional[bool] = None
+    options_required: Optional[bool] = None
+    category: Optional[Category]
 
     class Config:
         from_attributes = True

@@ -7,7 +7,13 @@ from app.enums.payment_status import PaymentStatus
 class PaymentRequest(BaseModel):
     order_id: int
     amount: float
-    method: str = "pix"
+    method: str = "pix"  # "pix" ou "card"
+    
+    # Campos opcionais, só usados se for "card":
+    token: Optional[str] = None  # Token do cartão, gerado no frontend
+    payment_method_id: Optional[str] = None  # "visa", "master", etc.
+    installments: Optional[int] = 1  # Parcelas, default 1
+    document_number: Optional[str] = None  # CPF do pagador
 
 class PaymentResponse(BaseModel):
     id: int
@@ -22,4 +28,4 @@ class PaymentResponse(BaseModel):
     updated_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        orm_mode = True  # Permite retornar direto models do SQLModel
