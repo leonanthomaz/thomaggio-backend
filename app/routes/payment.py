@@ -11,6 +11,7 @@ from app.models.payment import Payment
 from app.schemas.payment import PaymentRequest, PaymentResponse
 from app.enums.payment_status import PaymentStatus
 from app.api.mercadopago import sdk
+from app.websockets.ws_manager import payment_ws_manager
 
 Configuration()
 db_session = get_session
@@ -24,6 +25,7 @@ class PaymentRouter(APIRouter):
         self.add_api_route("/payment/pix-qrcode", self.generate_pix_qrcode, methods=["POST"])
         self.add_api_route("/payment/webhook", self.handle_webhook, methods=["POST"])
         self.add_api_route("/payment/{order_code}", self.get_payment, methods=["GET"], response_model=PaymentResponse)
+        self.add_api_route("/payment/transaction/{transaction_code}", self.get_payment_by_transaction_code, methods=["GET"], response_model=PaymentResponse)
 
     def create_payment(self, data: PaymentRequest, session: Session = Depends(db_session)):
         try:
@@ -214,6 +216,13 @@ class PaymentRouter(APIRouter):
             payment.updated_at = datetime.now(timezone.utc)
             session.add(payment)
             session.commit()
+            
+            await payment_ws_manager.broadcast({
+                "type": "payment_status",
+                "transaction_code": transaction_code,
+                "status": payment.status.value,
+                "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
+            })
 
             return {"status": "ok"}
 
@@ -311,4 +320,12 @@ class PaymentRouter(APIRouter):
             session.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-
+    def get_payment_by_transaction_code(self, transaction_code: str, session: Session = Depends(db_session)):
+        try:
+            payment = session.exec(select(Payment).where(Payment.transaction_code == transaction_code)).first()
+            if not payment:
+                raise HTTPException(status_code=404, detail="Pagamento não encontrado")
+            return payment
+        except Exception as e:
+            session.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
