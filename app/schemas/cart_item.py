@@ -19,6 +19,8 @@ class CartItemCreate(CartItemBase):
 
 class CartItemUpdate(BaseModel):
     quantity: conint(ge=1)
+    size: Optional[str]
+    selected_flavors: Optional[List[Dict[str, Any]]] = None
     observation: Optional[str] = None
     options: Optional[Dict[str, float]] = None
 

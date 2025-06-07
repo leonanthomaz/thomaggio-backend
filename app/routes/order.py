@@ -110,10 +110,11 @@ class OrderRouter(APIRouter):
             # Calcula o total final com desconto aplicado (não deixa negativo)
             total_after_discount = max(order_request.total_amount - discount_value, 0)
 
-            if order_request.payment_method == "cash" and order_request.cash_amount_given:
-                cash_change_for = order_request.cash_amount_given - total_after_discount
+            cash_change_total = 0.0
+            if order_request.payment_method == "dinheiro" and order_request.cash_change_for:
+                cash_change_total = order_request.cash_change_for - order_request.total_amount
             else:
-                cash_change_for = None
+                cash_change_total = None
 
             # 3. Criar pedido
             order = Order(
@@ -128,7 +129,8 @@ class OrderRouter(APIRouter):
                 discount_value=discount_value,
                 whatsapp_id=order_request.whatsapp_id,
                 status=OrderStatus.PENDING,
-                cash_change_for=cash_change_for,
+                cash_change_for=order_request.cash_change_for,
+                cash_change=cash_change_total,
                 is_whatsapp=order_request.is_whatsapp,
                 privacy_policy_version=order_request.privacy_policy_version,
                 privacy_policy_accepted_at=order_request.privacy_policy_accepted_at

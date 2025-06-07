@@ -48,6 +48,7 @@ class Order(SQLModel, table=True):
     discount_description: Optional[str] = Field(default=None) 
     
     cash_change_for: Optional[float] = Field(default=None, description="Valor informado pelo cliente para troco se o pagamento for em dinheiro")
+    cash_change: Optional[float] = Field(default=None, description="Valor processado de troco")
     payment_status: PaymentStatus = Field(default=PaymentStatus.PENDING, sa_column=Column(Enum(PaymentStatus), nullable=False))
     
     delivery_address_id: Optional[int] = Field(default=None, foreign_key="tb_address.id")

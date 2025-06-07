@@ -152,6 +152,12 @@ class CartRouter(APIRouter):
         if not item:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item não encontrado no carrinho")
 
+        if update_data.size is not None:
+            item.size = update_data.size
+
+        if update_data.selected_flavors is not None:
+            item.selected_flavors = update_data.selected_flavors
+
         if update_data.observation is not None:
             item.observation = update_data.observation
             
