@@ -45,6 +45,7 @@ class Configuration:
         
         self.mercado_pago_key_test = os.getenv("MERCADO_PAGO_PUBLIC_KEY_TEST")
         self.mercado_pago_access_token_test = os.getenv("MERCADO_PAGO_ACCESS_TOKEN_TEST")
+        self.mercado_pago_access_token_prod = os.getenv("MERCADO_PAGO_ACCESS_TOKEN_PROD")
                     
 
     def connect_to_postgresql(self):

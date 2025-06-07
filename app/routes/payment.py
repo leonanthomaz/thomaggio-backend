@@ -23,6 +23,7 @@ class PaymentRouter(APIRouter):
         super().__init__(*args, **kwargs)
         self.add_api_route("/payment/", self.create_payment, methods=["POST"], response_model=dict)
         self.add_api_route("/payment/pix-qrcode", self.generate_pix_qrcode, methods=["POST"], response_model=dict)
+        self.add_api_route("/payment/retry/pix-qrcode", self.regenerate_pix_qrcode, methods=["POST"], response_model=dict)
         self.add_api_route("/payment/webhook", self.handle_webhook, methods=["POST"])
         self.add_api_route("/payment/{order_code}", self.get_payment, methods=["GET"], response_model=PaymentResponse)
         self.add_api_route("/payment/transaction/{transaction_code}", self.get_payment_by_transaction_code, methods=["GET"], response_model=PaymentResponse)
@@ -377,7 +378,46 @@ class PaymentRouter(APIRouter):
             session.rollback()
             raise HTTPException(status_code=500, detail=str(e))
         
-        
+    def regenerate_pix_qrcode(self, data: PaymentRequest, session: Session = Depends(db_session)):
+        try:
+            order = session.exec(select(Order).where(Order.id == data.order_id)).first()
+            if not order:
+                raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+            now_utc = datetime.now(timezone.utc)
+
+            # Busca o último pagamento Pix
+            existing_payment = session.exec(
+                select(Payment)
+                .where(Payment.order_id == order.id, Payment.method == "pix")
+                .order_by(Payment.created_at.desc())
+            ).first()
+
+            if existing_payment:
+                if existing_payment.status == PaymentStatus.PAID:
+                    raise HTTPException(status_code=400, detail="Pagamento já foi realizado")
+                if existing_payment.expires_at and existing_payment.expires_at > now_utc:
+                    # Ainda válido, não precisa regenerar
+                    return {
+                        "qr_code": existing_payment.qr_code,
+                        "transaction_code": existing_payment.transaction_code,
+                        "expires_at": existing_payment.expires_at.isoformat()
+                    }
+                else:
+                    # Expirado, marca como cancelado
+                    existing_payment.status = PaymentStatus.CANCELED
+                    existing_payment.updated_at = now_utc
+                    session.add(existing_payment)
+                    session.commit()
+
+            # Gera novo QR Code chamando o método já existente
+            return self.generate_pix_qrcode(data, session)
+
+        except Exception as e:
+            session.rollback()
+            logging.error(f"Erro ao regenerar QR Code do Pix: {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Erro ao tentar regenerar o Pix")
+
     def make_aware(self, dt: datetime) -> datetime:
         """Convert naive datetime to timezone-aware (UTC)"""
         if dt.tzinfo is None:
