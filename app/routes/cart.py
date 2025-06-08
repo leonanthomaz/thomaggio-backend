@@ -76,7 +76,6 @@ class CartRouter(APIRouter):
         return {"message": "Carrinho deletado com sucesso"}
 
     def add_item_by_code(self, cart_code: str, item_data: CartItemCreate, session: Session = Depends(db_session)):
-        logging.info(f"DADOS VINDOS DO FRONTEND -> ITEM DATA: {item_data}")
         cart = session.exec(select(Cart).where(Cart.code == cart_code)).first()
         if not cart:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carrinho não encontrado")
@@ -134,7 +133,6 @@ class CartRouter(APIRouter):
         session.commit()
         session.refresh(new_item)
         
-        logging.info(f"Item adicionado ao carrinho {cart_code}: {new_item.id} - {new_item.product_id} - {new_item.size} - {new_item.quantity} >>> {new_item.observation}")
         return new_item
 
     def update_item_by_code(self, cart_code: str, item_id: int, update_data: CartItemUpdate, session: Session = Depends(db_session)):

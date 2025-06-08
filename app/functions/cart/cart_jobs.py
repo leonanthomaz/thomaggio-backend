@@ -29,7 +29,7 @@ def expire_old_carts():
             cart.updated_at = now
 
         session.commit()
-        logging.info(f"Apagando {len(carts)} carrinhos expirados")
+        logging.info(f"JOB >>> Desativando {len(carts)} carrinhos inativos")
         
 def delete_expired_carts():
     now = datetime.now(timezone.utc)
@@ -47,5 +47,5 @@ def delete_expired_carts():
             session.delete(cart)
 
         session.commit()
-        logging.info(f"Apagando {len(carts)} carrinhos expirados permanentemente")
+        logging.info(f"JOB >>> Apagando {len(carts)} carrinhos expirados permanentemente")
 

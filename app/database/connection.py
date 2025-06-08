@@ -16,7 +16,7 @@ def get_session():
             db_url = configuration.connect_to_postgresql()
             
         # Criação do engine para a conexão com o banco de dados
-        engine = create_engine(db_url, echo=True)
+        engine = create_engine(db_url, echo=False)
 
         # Criando as tabelas no banco de dados (caso não existam)
         SQLModel.metadata.create_all(bind=engine)

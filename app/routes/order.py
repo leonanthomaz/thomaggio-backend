@@ -39,7 +39,6 @@ class OrderRouter(APIRouter):
         return orders
 
     async def create_order(self, order_request: OrderCreate, session: Session = Depends(db_session)):
-        logging.info(f"DADOS RECEBIDOS DA REQUISIÇÃO FRONTEND: >>> {order_request}")
         try:
             # 1. Criar ou recuperar usuário
             user = session.exec(

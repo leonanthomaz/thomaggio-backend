@@ -91,10 +91,8 @@ class PaymentRouter(APIRouter):
             raise HTTPException(status_code=500, detail=str(e))
 
     def get_payment(self, order_code: str, session: Session = Depends(db_session)):
-            logging.info(f"PAGAMENTO ::: CÓDIGO DO PEDIDO >>> {order_code}")
             try:
                 order = session.exec(select(Order).where(Order.code == order_code)).first()
-                logging.info(f"PAGAMENTO ::: PEDIDO CAPTURADO >>> {order}")
 
                 if not order:
                     raise HTTPException(status_code=404, detail="Pedido não encontrado")
@@ -103,7 +101,6 @@ class PaymentRouter(APIRouter):
                     select(Payment)
                     .where(Payment.order_id == order.id)
                 ).first()
-                logging.info(f"PAGAMENTO ::: PAGAMENTO CAPTURADO >>> {payment.__dict__ if payment else 'None'}")
 
                 if not payment:
                     raise HTTPException(status_code=404, detail="Pagamento não encontrado")
@@ -124,7 +121,7 @@ class PaymentRouter(APIRouter):
                 )
                 
             except Exception as e:
-                logging.error(f"Erro ao buscar pagamento: {str(e)}")
+                logging.error(f"PAGAMENTO >>> Erro ao buscar pagamento: {str(e)}")
                 raise HTTPException(status_code=500, detail="Erro interno ao buscar pagamento")
 
     def generate_pix_qrcode(self, data: PaymentRequest, session: Session = Depends(db_session)):
@@ -222,7 +219,7 @@ class PaymentRouter(APIRouter):
         try:
             body = await request.json()
 
-            logging.info(f"Webhook recebido: {body}")
+            logging.info(f"MERCADO PAGO >>> Webhook recebido: {body}")
 
             if body.get("type") != "payment":
                 return {"status": "ignored"}
@@ -235,13 +232,13 @@ class PaymentRouter(APIRouter):
             try:
                 result = sdk.payment().get(payment_id)
             except Exception as e:
-                logging.info(f"Erro ao buscar pagamento {payment_id} - {e}")
+                logging.error(f"MERCADO PAGO >>> Erro ao buscar pagamento {payment_id} - {e}")
                 return {"status": "payment_not_found"}
 
             mp_payment = result.get("response")
 
             if not mp_payment:
-                logging.info(f"Pagamento {payment_id} não encontrado")
+                logging.error(f"MERCADO PAGO >>> Pagamento {payment_id} não encontrado")
                 return {"status": "payment_not_found"}
 
             transaction_code = str(mp_payment["id"])

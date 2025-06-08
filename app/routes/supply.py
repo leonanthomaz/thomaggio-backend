@@ -1,14 +1,10 @@
 from datetime import datetime, timezone
-import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.models.supply import Supply
 from app.schemas.supply import SupplyCreate, SupplyUpdate, SupplyRead
 from app.database.connection import get_session
-
-# Configuração de logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Instância do session maker
 db_session = get_session

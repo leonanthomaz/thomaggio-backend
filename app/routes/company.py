@@ -2,16 +2,13 @@ from datetime import datetime, timezone
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
-from sqlalchemy.orm import selectinload
 
-from app.models.address import Address
 from app.models.company import Company
 from app.schemas.address import AddressUpdate
 from app.schemas.chat_status import ChatbotStatusUpdate, StatusResponse
 from app.schemas.company import CompanyStatusResponse, CompanyStatusUpdate, CompanyUpdate
 from app.database.connection import get_session
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 db_session = get_session
 
 class CompanyRouter(APIRouter):
@@ -29,8 +26,13 @@ class CompanyRouter(APIRouter):
         self.add_api_route("/company/chatbot-status", self.chatbot_read_status, methods=["GET"], response_model=StatusResponse)
         self.add_api_route("/company/chatbot-status", self.chatbot_change_status, methods=["POST"], response_model=StatusResponse)
         
+        self.add_api_route("/company/health", self.check_health, methods=["GET"])
+        
         self.add_api_route("/company/{company_id}", self.update_company, methods=["PUT"], response_model=Company)
-
+        
+    def check_health(self):
+        return {"status": "ok"}
+            
     def get_company(self, session: Session = Depends(db_session)):
         """
         Retorna os dados de uma empresa cadastrada pelo ID.

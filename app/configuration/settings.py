@@ -8,6 +8,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Carrega as variáveis de ambiente
 load_dotenv(dotenv_path=".env", encoding="utf-8")
 
+# Silencia logs de SQLAlchemy
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
 class Configuration:
     def __init__(self):
         
@@ -51,12 +54,12 @@ class Configuration:
     def connect_to_postgresql(self):
         # Montar a URL de conexão corretamente
         db_url = f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
-        logging.info(f"DB URL: {db_url}")
+        logging.info(f"BANCO DE DADOS >>> SELECIONADO DE PRODUÇÃO -> : {db_url}")
         return db_url
     
     def connect_to_postgresql_dev(self):
         # Montar a URL de conexão corretamente
         db_url = f"postgresql://{self.db_dev_user}:{self.db_dev_password}@{self.db_dev_host}:{self.db_dev_port}/{self.db_dev_name}"
-        logging.info(f"DB DESENVOLVIMENTO URL: {db_url}")
+        logging.info(f"BANCO DE DADOS >>> SELECIONADO DE DESENVOLVIMENTO -> : {db_url}")
         return db_url
     

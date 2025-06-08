@@ -26,14 +26,14 @@ class CacheManager:
         cache_key = self.get_cache_key(key)
         cached_data = self.cache.get(cache_key)
         if cached_data:
-            logging.info(f"Dados encontrados no cache para a chave: {cache_key}")
+            logging.info(f"CACHE >>> Dados encontrados no cache para a chave: {cache_key}")
         return cached_data
 
     async def cache_data(self, key: str, data: dict) -> None:
         """Armazena dados no cache"""
         cache_key = self.get_cache_key(key)
         self.cache.set(cache_key, data, ttl=900)
-        logging.info(f"Dados armazenados no cache com a chave: {cache_key}")
+        logging.info(f"CACHE >>> Dados armazenados no cache com a chave: {cache_key}")
 
     async def get_company_data(self, session: Session) -> dict:
         """Obtém dados da empresa, usando cache quando possível"""

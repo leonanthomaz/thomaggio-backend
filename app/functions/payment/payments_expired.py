@@ -29,9 +29,10 @@ def cancel_expired_payments():
             time_diff = now - expires_at
 
             payment.status = PaymentStatus.CANCELED
+            payment.qr_code_base64 = None
             payment.updated_at = now
             session.add(payment)
-            logging.info(f"Pagamento {payment.id} cancelado por expiração. Tempo desde expiração: {time_diff.total_seconds()} segundos.")
+            logging.info(f"PAGAMENTO >>> Pagamento {payment.id} cancelado por expiração. Tempo desde expiração: {time_diff.total_seconds()} segundos.")
 
         session.commit() 
-        logging.info(f"Cancelamento de {len(expired_payments)} pagamentos expirados concluído.")
+        logging.info(f"PAGAMENTO >>> Cancelamento de {len(expired_payments)} pagamentos expirados concluído.")

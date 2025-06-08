@@ -23,4 +23,4 @@ def clear_expired_promotions():
 
         session.commit()
 
-        logging.info(f"Limpeza de promoções expiradas concluída. {len(products)} produtos atualizados.")
+        logging.info(f"PROMOÇÃO >>> Limpeza de promoções expiradas concluída. {len(products)} produtos atualizados.")

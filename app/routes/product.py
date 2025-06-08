@@ -15,7 +15,7 @@ from app.models.user import User
 from app.auth.auth import AuthRouter
 from app.database.connection import get_session
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
-from app.storage.R2Service import R2Service
+from app.api.R2Service import R2Service
 
 db_session = get_session
 get_current_user = AuthRouter().get_current_user

@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from app.models.product import Product
@@ -8,7 +7,6 @@ from app.models.supply import Supply
 from app.schemas.product_supply import ProductSupplyCreate, ProductSupplyUpdate, ProductSupplyRead, ProductWithSuppliesRead
 from app.database.connection import get_session
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 db_session = get_session
 
 class ProductSupplyRouter(APIRouter):
