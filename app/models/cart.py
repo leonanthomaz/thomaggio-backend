@@ -27,6 +27,11 @@ class Cart(SQLModel, table=True):
     status: CartStatus = Field(default=CartStatus.ACTIVE)
 
     items: List["CartItem"] = Relationship(back_populates="cart")
+    
+    promo_code: Optional[str] = Field(default=None)
+    promo_discount_percentage: Optional[float] = Field(default=None)
+    promo_discount_value: Optional[float] = Field(default=None)
+    promo_applied_at: Optional[datetime] = Field(default=None)
         
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = None

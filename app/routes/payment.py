@@ -68,7 +68,7 @@ class PaymentRouter(APIRouter):
                 return self.generate_pix_qrcode(data, session)
 
             # Pagamento comum
-            expiration_time = datetime.now(timezone.utc) + timedelta(minutes=5)
+            expiration_time = datetime.now(timezone.utc) + timedelta(minutes=1)
             payment = Payment(
                 order_id=data.order_id,
                 method=data.method,
@@ -120,6 +120,7 @@ class PaymentRouter(APIRouter):
                     created_at=payment.created_at.isoformat(),
                     updated_at=payment.updated_at.isoformat() if payment.updated_at else None,
                     qr_code=payment.qr_code,
+                    qr_code_base64=payment.qr_code_base64
                 )
                 
             except Exception as e:
@@ -133,7 +134,6 @@ class PaymentRouter(APIRouter):
                 raise HTTPException(status_code=404, detail="Pedido não encontrado")
 
             now_utc = datetime.now(timezone.utc)
-            expires_at = now_utc + timedelta(minutes=5)
 
             # Busca pagamento anterior (caso exista)
             existing_payment = session.exec(
@@ -147,8 +147,10 @@ class PaymentRouter(APIRouter):
                     # Ainda tá válido
                     return {
                         "qr_code": existing_payment.qr_code,
+                        "qr_code_base64": existing_payment.qr_code_base64,
                         "transaction_code": existing_payment.transaction_code,
-                        "expires_at": existing_payment.expires_at.isoformat()
+                        "expires_at": existing_payment.expires_at.isoformat(),
+                        "status": "pending"
                     }
                 else:
                     # Expirado, marca como cancelado
@@ -187,7 +189,8 @@ class PaymentRouter(APIRouter):
 
             if not qr_code:
                 raise HTTPException(status_code=400, detail="QR Code não gerado")
-
+            
+            expires_at = now_utc + timedelta(minutes=10)
             payment = Payment(
                 order_id=order.id,
                 method="pix",
@@ -196,6 +199,7 @@ class PaymentRouter(APIRouter):
                 status=PaymentStatus.PENDING,
                 expires_at=expires_at,
                 qr_code=qr_code,
+                qr_code_base64=qr_code_base64,
                 created_at=now_utc
             )
             session.add(payment)
@@ -206,7 +210,7 @@ class PaymentRouter(APIRouter):
                 "qr_code": qr_code,
                 "qr_code_base64": qr_code_base64,
                 "transaction_code": transaction_code,
-                "expires_at": expires_at.isoformat()
+                "expires_at": payment.expires_at.isoformat()
             }
 
         except Exception as e:
@@ -256,10 +260,16 @@ class PaymentRouter(APIRouter):
             if status == "approved":
                 payment.status = PaymentStatus.PAID
                 payment.paid_at = datetime.now(timezone.utc)
+                payment.qr_code_base64 = None
             elif status in ["rejected", "cancelled"]:
                 payment.status = PaymentStatus.CANCELED
+                payment.qr_code_base64 = None
+            elif payment.expires_at and payment.expires_at < datetime.now(timezone.utc):
+                payment.status = PaymentStatus.CANCELED
+                payment.qr_code_base64 = None
             else:
                 payment.status = PaymentStatus.PENDING
+                
 
             payment.updated_at = datetime.now(timezone.utc)
             session.add(payment)
@@ -396,22 +406,75 @@ class PaymentRouter(APIRouter):
             if existing_payment:
                 if existing_payment.status == PaymentStatus.PAID:
                     raise HTTPException(status_code=400, detail="Pagamento já foi realizado")
-                if existing_payment.expires_at and existing_payment.expires_at > now_utc:
-                    # Ainda válido, não precisa regenerar
-                    return {
-                        "qr_code": existing_payment.qr_code,
-                        "transaction_code": existing_payment.transaction_code,
-                        "expires_at": existing_payment.expires_at.isoformat()
-                    }
+                if existing_payment.status == PaymentStatus.PENDING:
+                    raise HTTPException(status_code=400, detail="Existe um pagamento ativo.")
                 else:
                     # Expirado, marca como cancelado
                     existing_payment.status = PaymentStatus.CANCELED
+                    existing_payment.qr_code_base64 = None
                     existing_payment.updated_at = now_utc
                     session.add(existing_payment)
                     session.commit()
 
-            # Gera novo QR Code chamando o método já existente
-            return self.generate_pix_qrcode(data, session)
+            # Gera novo PIX via MP
+            full_name = order.customer_name.strip()
+            parts = full_name.split(" ", 1)
+            first_name = parts[0]
+            last_name = parts[1] if len(parts) > 1 else ""
+
+            body = {
+                "transaction_amount": data.amount,
+                "description": f"Pedido #{order.code}",
+                "payment_method_id": "pix",
+                "payer": {
+                    "email": f"cliente_{order.id}@temp.com",
+                    "first_name": first_name,
+                    "last_name": last_name,
+                },
+            }
+
+            result = sdk.payment().create(body)
+            response = result["response"]
+
+            if response.get("status") != "pending":
+                raise HTTPException(status_code=400, detail="Erro ao gerar PIX")
+
+            poi = response.get("point_of_interaction", {})
+            transaction_data = poi.get("transaction_data", {})
+            qr_code = transaction_data.get("qr_code")
+            qr_code_base64 = transaction_data.get("qr_code_base64")
+            transaction_code = str(response["id"])
+
+            if not qr_code:
+                raise HTTPException(status_code=400, detail="QR Code não gerado")
+
+            expires_at = now_utc + timedelta(minutes=10)
+            payment = Payment(
+                order_id=order.id,
+                method="pix",
+                amount=data.amount,
+                transaction_code=transaction_code,
+                status=PaymentStatus.PENDING,
+                expires_at=expires_at,
+                qr_code=qr_code,
+                qr_code_base64=qr_code_base64,
+                created_at=now_utc
+            )
+            session.add(payment)
+            session.commit()
+            session.refresh(payment)
+
+            return {
+                "qr_code": qr_code,
+                "qr_code_base64": qr_code_base64,
+                "transaction_code": transaction_code,
+                "expires_at": payment.expires_at.isoformat()
+            }
+
+        except Exception as e:
+            session.rollback()
+            logging.error(f"Erro ao gerar PIX: {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Erro ao processar PIX: {str(e)}")
 
         except Exception as e:
             session.rollback()

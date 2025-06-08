@@ -8,11 +8,14 @@ class PaymentRequest(BaseModel):
     order_id: int
     amount: float
     method: str = "pix"
+    
     token: Optional[str] = None  # Token do cartão, gerado no frontend
     payment_method_id: Optional[str] = None  # "visa", "master", etc.
     installments: Optional[int] = 1  # Parcelas, default 1
-    document_number: Optional[str] = None  # CPF do pagador    
+    document_number: Optional[str] = None  # CPF do pagador
+    
     qr_code: Optional[str] = None
+    qr_code_base64: Optional[str] = None
 
 class PaymentResponse(BaseModel):
     id: int
@@ -26,6 +29,7 @@ class PaymentResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     qr_code: Optional[str]
+    qr_code_base64: Optional[str]
 
     class Config:
         orm_mode = True  # Permite retornar direto models do SQLModel

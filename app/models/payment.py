@@ -22,6 +22,7 @@ class Payment(SQLModel, table=True):
     status: PaymentStatus = Field(default=PaymentStatus.PENDING, sa_column=Column(Enum(PaymentStatus), nullable=False))
     
     qr_code: Optional[str] = Field(default=None)
+    qr_code_base64: Optional[str] = Field(default=None)
 
     paid_at: Optional[datetime] = Field(default=None)
     expires_at: Optional[datetime] = Field(default=None)

@@ -60,7 +60,7 @@ def populate_admin_user(session: Session, company_id: int):
             "phone": "(21) 99809-0928",
             "role": "admin",
             "is_admin": True,
-            "is_active": True
+            "is_active": True,
         }
         user = User(**user_data)
         session.add(user)
@@ -77,7 +77,8 @@ def populate_admin_user(session: Session, company_id: int):
             reference="Próximo ao Parque Nacional da Tijuca",
             city="Rio de Janeiro",
             state="RJ",
-            zip_code="20531-402"
+            zip_code="20531-402",
+            is_company_address= True
         )
         
         session.add(address_data)
@@ -88,12 +89,6 @@ def populate_default_category(session: Session):
     existing = session.exec(select(Category)).all()
 
     if not existing:
-        # default_category = Category(
-        #     name="Geral",
-        #     description="Categoria padrão para produtos sem categoria definida",
-        #     is_active=True,
-        #     created_at=datetime.now(timezone.utc),
-        # )
         categories = [
             # default_category,
             Category(

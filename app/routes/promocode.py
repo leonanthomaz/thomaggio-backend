@@ -1,12 +1,13 @@
 from datetime import datetime
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.auth.auth import AuthRouter
 from app.configuration.settings import Configuration
 from app.database.connection import get_session
+from app.models.cart import Cart
 from app.models.promocode import PromoCode
 from app.models.user import User
 from app.schemas.promocode import PromoCodeCreate, PromoCodeResponse, PromoCodeUpdate
@@ -25,6 +26,9 @@ class PromoCodeRouter(APIRouter):
         self.add_api_route("/promocode/{promo_id}", self.get_promocode, methods=["GET"], response_model=PromoCode)
         self.add_api_route("/promocode/{promo_id}", self.update_promocode, methods=["PUT"], response_model=PromoCode)
         self.add_api_route("/promocode/{promo_id}", self.delete_promocode, methods=["DELETE"], response_model=dict)
+        
+        self.add_api_route("/promocode/apply/{promo_code}/{cart_code}", self.apply_promocode, methods=["POST"])
+        self.add_api_route("/promocode/remove/{cart_code}", self.remove_promocode, methods=["DELETE"])
 
     async def list_promocodes(self, session: Session = Depends(db_session)):
         promo_codes = session.exec(select(PromoCode)).all()
@@ -78,3 +82,115 @@ class PromoCodeRouter(APIRouter):
         session.delete(db_promo)
         session.commit()
         return {"detail": "PromoCode deletado com sucesso"}
+    
+    async def apply_promocode(
+        self, 
+        promo_code: str, 
+        cart_code: str, 
+        session: Session = Depends(db_session)
+    ):
+        """Aplica um código promocional ao carrinho e calcula o desconto"""
+        
+        # 1. Busca o carrinho
+        cart = session.exec(select(Cart).where(Cart.code == cart_code)).first()
+        if not cart:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Carrinho não encontrado"
+            )
+        
+        # 2. Busca o código promocional (case insensitive)
+        promo_code_upper = promo_code.upper()
+        promo = session.exec(
+            select(PromoCode).where(PromoCode.code == promo_code_upper)
+        ).first()
+        
+        if not promo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Código promocional inválido"
+            )
+        
+        # 3. Validações do código promocional
+        now = datetime.now()
+        
+        if not promo.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Código promocional inativo"
+            )
+        
+        if now < promo.valid_from:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Código promocional válido apenas a partir de {promo.valid_from}"
+            )
+        
+        if now > promo.valid_until:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Código promocional expirado"
+            )
+        
+        if promo.max_uses is not None and promo.current_uses >= promo.max_uses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Código promocional atingiu o limite de usos"
+            )
+        
+        if promo.min_order_value is not None and cart.total < promo.min_order_value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Valor mínimo do pedido para este cupom é R$ {promo.min_order_value:.2f}"
+            )
+        
+        # 4. Calcula o desconto
+        discount_value = cart.total * (promo.discount_percentage / 100)
+        total_with_discount = max(cart.total - discount_value, 0)
+        
+        cart.promo_code = promo.code
+        cart.promo_discount_percentage = promo.discount_percentage
+        cart.promo_discount_value = discount_value
+        cart.promo_applied_at = datetime.now()
+        promo.current_uses += 1
+        
+        session.add_all([cart, promo])
+        session.commit()
+        
+        # 6. Retorna os dados do desconto aplicado
+        return {
+            "original_total": cart.total,
+            "discount_percentage": promo.discount_percentage,
+            "discount_value": discount_value,
+            "total_with_discount": total_with_discount,
+            "promo_code": promo.code,
+            "promo_description": promo.description
+        }
+        
+    async def remove_promocode(
+        self, 
+        cart_code: str, 
+        session: Session = Depends(db_session)
+    ):
+        """Remove um código promocional aplicado ao carrinho, revertendo para o valor original"""
+        
+        cart = session.exec(select(Cart).where(Cart.code == cart_code)).first()
+        if not cart:
+            raise HTTPException(status_code=404, detail="Carrinho não encontrado")
+
+        cart.promo_code = None
+        cart.promo_discount_percentage = 0
+        cart.promo_discount_value = 0
+        cart.promo_applied_at = None
+
+        session.add(cart)
+        session.commit()
+
+        return {
+            "success": True,
+            "message": "Código promocional removido com sucesso",
+            "original_total": cart.total,
+            "current_total": cart.total,
+            "discount_applied": 0,
+            "promo_code": None
+        }
