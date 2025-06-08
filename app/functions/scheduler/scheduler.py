@@ -21,7 +21,7 @@ def start_scheduler():
     scheduler.add_job(cancel_expired_payments, "interval", minutes=1)
     
     # Ping de keep-alive a cada 5 minutos
-    scheduler.add_job(keep_alive_ping, "interval", minutes=1)
+    scheduler.add_job(keep_alive_ping, "interval", minutes=5)
 
     scheduler.start()
     

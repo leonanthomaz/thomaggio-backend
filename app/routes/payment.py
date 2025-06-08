@@ -26,9 +26,10 @@ class PaymentRouter(APIRouter):
         self.add_api_route("/payment/retry/pix-qrcode", self.regenerate_pix_qrcode, methods=["POST"], response_model=dict)
         self.add_api_route("/payment/webhook", self.handle_webhook, methods=["POST"])
         self.add_api_route("/payment/{order_code}", self.get_payment, methods=["GET"], response_model=PaymentResponse)
-        self.add_api_route("/payment/transaction/{transaction_code}", self.get_payment_by_transaction_code, methods=["GET"], response_model=PaymentResponse)
         self.add_api_route("/payment/{order_code}/status", self.check_pix_status, methods=["GET"], response_model=dict)
-    
+        self.add_api_route("/payment/{order_code}/change-method", self.change_payment_method, methods=["PATCH"], response_model=dict)
+        self.add_api_route("/payment/transaction/{transaction_code}", self.get_payment_by_transaction_code, methods=["GET"], response_model=PaymentResponse)
+
     def check_pix_status(self, order_code: str, session: Session = Depends(db_session)):
         try:
             order = session.exec(select(Order).where(Order.code == order_code)).first()
@@ -488,3 +489,171 @@ class PaymentRouter(APIRouter):
         """Get current time with UTC timezone"""
         return datetime.now(timezone.utc)
     
+    
+    def change_payment_method(
+        self, 
+        order_code: str, 
+        data: dict,
+        session: Session = Depends(db_session)
+    ):
+        """
+        Altera o método de pagamento de um pedido existente.
+        
+        Para 'dinheiro' requer o campo 'cash_change_for' (valor dado pelo cliente).
+        Para 'cartao' apenas altera o método (implementação futura).
+        Para 'pix' apenas altera o método (já implementado).
+        """
+        try:
+            # Busca o pedido
+            order = session.exec(select(Order).where(Order.code == order_code)).first()
+            if not order:
+                raise HTTPException(status_code=404, detail="Pedido não encontrado")
+            
+            new_method = data.get("method")
+            if not new_method or new_method not in ["pix", "dinheiro", "cartao"]:
+                raise HTTPException(status_code=400, detail="Método de pagamento inválido")
+            
+            # Verifica se há mudança real
+            if order.payment_method == new_method:
+                return {"status": "success", "message": "Método de pagamento já é o mesmo"}
+            
+            # Reseta campos de dinheiro se não for o método selecionado
+            if new_method != "dinheiro":
+                order.cash_change_for = None
+                order.cash_change = None
+            
+            # Lógica específica para cada método
+            if new_method == "dinheiro":
+                cash_change_for = data.get("cash_change_for")
+                if cash_change_for is None or cash_change_for <= 0:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Para pagamento em dinheiro, informe o valor recebido para cálculo de troco"
+                    )
+                
+                # Calcula o troco
+                if cash_change_for < order.total_amount:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="O valor recebido deve ser maior ou igual ao total do pedido"
+                    )
+                
+                order.cash_change_for = cash_change_for
+                order.cash_change = cash_change_for - order.total_amount
+            
+            # Atualiza o método de pagamento no pedido
+            order.payment_method = new_method
+            order.updated_at = datetime.now(timezone.utc)
+            session.add(order)
+            
+            now_utc = datetime.now(timezone.utc)
+            
+            # Busca pagamentos existentes para este pedido
+            existing_payments = session.exec(
+                select(Payment)
+                .where(Payment.order_id == order.id)
+            ).all()
+            
+            # Se mudou para PIX, cancela todos os pagamentos existentes e cria um novo PIX
+            if new_method == "pix":
+                # Cancela todos os pagamentos existentes
+                for payment in existing_payments:
+                    payment.status = PaymentStatus.CANCELED
+                    payment.updated_at = datetime.now(timezone.utc)
+                    session.add(payment)
+                
+                # Gera novo PIX
+                full_name = order.customer_name.strip()
+                parts = full_name.split(" ", 1)
+                first_name = parts[0]
+                last_name = parts[1] if len(parts) > 1 else ""
+
+                body = {
+                    "transaction_amount": order.total_amount,
+                    "description": f"Pedido #{order.code}",
+                    "payment_method_id": "pix",
+                    "payer": {
+                        "email": f"cliente_{order.id}@temp.com",
+                        "first_name": first_name,
+                        "last_name": last_name,
+                    },
+                }
+
+                result = sdk.payment().create(body)
+                response = result["response"]
+
+                if response.get("status") != "pending":
+                    raise HTTPException(status_code=400, detail="Erro ao gerar PIX")
+
+                poi = response.get("point_of_interaction", {})
+                transaction_data = poi.get("transaction_data", {})
+                qr_code = transaction_data.get("qr_code")
+                qr_code_base64 = transaction_data.get("qr_code_base64")
+                transaction_code = str(response["id"])
+
+                if not qr_code:
+                    raise HTTPException(status_code=400, detail="QR Code não gerado")
+
+                
+                expires_at = now_utc + timedelta(minutes=10)
+                # Cria novo registro de pagamento PIX
+                new_payment = Payment(
+                    order_id=order.id,
+                    method="pix",
+                    amount=order.total_amount,
+                    transaction_code=transaction_code,
+                    status=PaymentStatus.PENDING,
+                    expires_at=expires_at,
+                    qr_code=qr_code,
+                    qr_code_base64=qr_code_base64,
+                    created_at=now_utc
+                )
+                session.add(new_payment)
+                session.commit()
+                session.refresh(new_payment)
+                
+                return {
+                    "qr_code": qr_code,
+                    "qr_code_base64": qr_code_base64,
+                    "transaction_code": transaction_code,
+                    "expires_at": expires_at.isoformat(),
+                }
+            else:
+                # Para dinheiro ou cartão, cancela todos os pagamentos PIX existentes
+                # e limpa os dados de QR code
+                for payment in existing_payments:
+                    if payment.method == "pix" and payment.status == PaymentStatus.PENDING:
+                        payment.status = PaymentStatus.CANCELED
+                        payment.qr_code = None
+                        payment.qr_code_base64 = None
+                        payment.updated_at = datetime.now(timezone.utc)
+                        session.add(payment)
+
+                # Cria novo pagamento com o método atualizado
+                new_payment = Payment(
+                    order_id=order.id,
+                    method=new_method,
+                    amount=order.total_amount,
+                    status=PaymentStatus.PENDING,
+                    created_at=datetime.now(timezone.utc)
+                )
+                session.add(new_payment)
+
+                session.commit()
+                
+                return {
+                    "status": "success",
+                    "order_code": order.code,
+                    "new_method": new_method,
+                    "cash_change": order.cash_change if new_method == "dinheiro" else None
+                }
+                
+        except HTTPException:
+            raise  # Re-lança exceções HTTP que já foram tratadas
+        except Exception as e:
+            session.rollback()
+            logging.error(f"Erro ao alterar método de pagamento: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=500, 
+                detail="Erro interno ao alterar método de pagamento"
+            )
