@@ -14,6 +14,7 @@ from app.routes.company import CompanyRouter
 from app.routes.user import UserRouter
 from app.routes.product import ProductRouter
 from app.routes.category import CategoryRouter
+from app.routes.chat import WhatsAppRouter
 from app.routes.cart import CartRouter
 from app.routes.order import OrderRouter
 from app.routes.supply import SupplyRouter
@@ -64,7 +65,8 @@ def create_app():
     app.include_router(DeliveryRouter())
     app.include_router(TokenStatusRouter())
     app.include_router(PaymentRouter())
-    app.include_router(PromoCodeRouter())
+    app.include_router(PromoCodeRouter()) 
+    app.include_router(WhatsAppRouter()) 
 
     app.include_router(websocket_routes.router)
 
