@@ -104,7 +104,8 @@ class WhatsAppRouter(APIRouter):
 
             message = "\n".join(message_lines)
 
-            success = await self.send_whatsapp_message(order.whatsapp_id, message)
+            recipient = self.format_phone(order.phone)
+            success = await self.send_whatsapp_message(recipient, message)
             if not success:
                 logging.error(f"❌ Falha ao enviar mensagem para pedido {order_code}")
 
@@ -112,3 +113,10 @@ class WhatsAppRouter(APIRouter):
             logging.error(f"❌ Erro ao enviar info do pedido {order_code} via WhatsApp: {e}", exc_info=True)
         finally:
             session.close()
+            
+    def format_phone(self, phone: str) -> str:
+        """Formata para E.164 adicionando DDI do Brasil se necessário."""
+        digits = ''.join(filter(str.isdigit, phone))
+        if digits.startswith("55"):
+            return digits
+        return f"55{digits}"
