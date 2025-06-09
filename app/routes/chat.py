@@ -24,6 +24,7 @@ class WhatsAppRouter(APIRouter):
 
         self.add_api_route("/webhook/whatsapp", self.verify_webhook, methods=["GET"])
         self.add_api_route("/webhook/whatsapp", self.whatsapp_webhook, methods=["POST"])
+        self.add_api_route("/send-whatsapp", self.send_whatsapp_message, methods=["POST"])
 
     async def verify_webhook(
         self,
@@ -65,12 +66,20 @@ class WhatsAppRouter(APIRouter):
             logging.info(f"📤 WhatsApp Send: {response.status_code} - {response.text}")
             return response.status_code == 200
 
-    async def send_order_and_payment_info_via_whatsapp(self, order_id: int):
+    async def send_order_and_payment_info_via_whatsapp(self, order_code: str):
         session: Session = self.database_manager()
         try:
-            order: Order = session.get(Order, order_id)
-            if not order or not order.whatsapp_id:
-                logging.warning("⚠️ Pedido não encontrado ou sem whatsapp_id.")
+            # Busca o pedido pelo código em vez do ID
+            order: Order = session.exec(
+                select(Order).where(Order.code == order_code)
+            ).first()
+            
+            if not order:
+                logging.warning(f"⚠️ Pedido com código {order_code} não encontrado.")
+                return
+                
+            if not order.whatsapp_id:
+                logging.warning(f"⚠️ Pedido {order_code} sem whatsapp_id.")
                 return
 
             payment: Payment = session.exec(
@@ -82,7 +91,8 @@ class WhatsAppRouter(APIRouter):
                 f"👤 Cliente: {order.customer_name or 'N/A'}",
                 f"📞 Telefone: {order.phone or 'N/A'}",
                 f"💰 Total: R$ {order.total_amount:.2f}",
-                f"💳 Pagamento: {order.payment_method.upper()} - {order.payment_status.value.upper()}",
+                f"💳 Método: {order.payment_method.upper()}",
+                f"🔄 Status: {order.payment_status.value.upper()}",
             ]
 
             if payment:
@@ -90,12 +100,16 @@ class WhatsAppRouter(APIRouter):
                     message_lines.append(f"🔗 QR Code: {payment.qr_code}")
                 if payment.expires_at:
                     message_lines.append(f"⏳ Expira em: {payment.expires_at.strftime('%d/%m/%Y %H:%M')}")
+                if payment.paid_at:
+                    message_lines.append(f"✅ Pago em: {payment.paid_at.strftime('%d/%m/%Y %H:%M')}")
 
             message = "\n".join(message_lines)
 
-            await self.send_whatsapp_message(order.whatsapp_id, message)
+            success = await self.send_whatsapp_message(order.whatsapp_id, message)
+            if not success:
+                logging.error(f"❌ Falha ao enviar mensagem para pedido {order_code}")
 
         except Exception as e:
-            logging.error(f"❌ Erro ao enviar info do pedido via WhatsApp: {e}", exc_info=True)
+            logging.error(f"❌ Erro ao enviar info do pedido {order_code} via WhatsApp: {e}", exc_info=True)
         finally:
             session.close()
