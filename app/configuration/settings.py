@@ -49,6 +49,11 @@ class Configuration:
         self.mercado_pago_key_test = os.getenv("MERCADO_PAGO_PUBLIC_KEY_TEST")
         self.mercado_pago_access_token_test = os.getenv("MERCADO_PAGO_ACCESS_TOKEN_TEST")
         self.mercado_pago_access_token_prod = os.getenv("MERCADO_PAGO_ACCESS_TOKEN_PROD")
+        
+        self.meta_url = os.getenv("META_URL")
+        self.facebook_access_token = os.getenv("META_ACCESS_TOKEN")
+        self.facebook_phone_number_id = os.getenv("META_PHONE_ID")
+        self.meta_verify_token = os.getenv("META_VERIFY_TOKEN")
                     
 
     def connect_to_postgresql(self):
