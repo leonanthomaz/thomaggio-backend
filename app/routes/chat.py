@@ -24,7 +24,7 @@ class WhatsAppRouter(APIRouter):
 
         self.add_api_route("/webhook/whatsapp", self.verify_webhook, methods=["GET"])
         self.add_api_route("/webhook/whatsapp", self.whatsapp_webhook, methods=["POST"])
-        self.add_api_route("/send-whatsapp", self.send_order_and_payment_info_via_whatsapp, methods=["POST"])
+        self.add_api_route("/send-whatsapp/{order_code}", self.send_order_and_payment_info_via_whatsapp, methods=["POST"])
 
     async def verify_webhook(
         self,
