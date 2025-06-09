@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Request, Response, Query
+from fastapi import APIRouter, Depends, Request, Response, Query
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
@@ -10,6 +10,7 @@ from app.models.order import Order
 from app.models.payment import Payment
 from app.database.connection import get_session
 
+db_session = get_session
 configuration = Configuration()
 
 WHATSAPP_API_URL = configuration.meta_url
@@ -20,7 +21,6 @@ VERIFY_TOKEN = configuration.meta_verify_token
 class WhatsAppRouter(APIRouter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.database_manager = get_session
 
         self.add_api_route("/webhook/whatsapp", self.verify_webhook, methods=["GET"])
         self.add_api_route("/webhook/whatsapp", self.whatsapp_webhook, methods=["POST"])
@@ -66,8 +66,7 @@ class WhatsAppRouter(APIRouter):
             logging.info(f"📤 WhatsApp Send: {response.status_code} - {response.text}")
             return response.status_code == 200
 
-    async def send_order_and_payment_info_via_whatsapp(self, order_code: str):
-        session: Session = self.database_manager()
+    async def send_order_and_payment_info_via_whatsapp(self, order_code: str, session: Session = Depends(db_session)):
         try:
             # Busca o pedido pelo código em vez do ID
             order: Order = session.exec(
