@@ -60,6 +60,7 @@ class WhatsAppRouter(APIRouter):
             "type": "text",
             "text": {"body": message}
         }
+        logging.info(f"📤 WhatsApp do Cliente: {recipient} - Mensagem: {message} - ")
 
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload)
@@ -106,6 +107,7 @@ class WhatsAppRouter(APIRouter):
 
             recipient = self.format_phone(order.phone)
             success = await self.send_whatsapp_message(recipient, message)
+
             if not success:
                 logging.error(f"❌ Falha ao enviar mensagem para pedido {order_code}")
 

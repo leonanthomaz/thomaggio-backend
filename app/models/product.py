@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy import Column, JSON
-from pydantic import validator
+from pydantic import field_validator
 
 from typing import TYPE_CHECKING
 
@@ -62,7 +62,15 @@ class Product(SQLModel, table=True):
     updated_at: Optional[datetime] = Field(default=None)
     deleted_at: Optional[datetime] = Field(default=None)
     
-    @validator("types", pre=True, always=True)
+    @property
+    def is_promotion_active(self) -> bool:
+        now = datetime.now(timezone.utc)
+        return self.is_promotion and (
+            (self.promotion_start_at is None or self.promotion_start_at <= now) and
+            (self.promotion_end_at is None or self.promotion_end_at >= now)
+        )
+    
+    @field_validator("types", pre=True, always=True)
     def set_types_default(cls, v):
         if v is None:
             return []
