@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy import Column, JSON
-from pydantic import field_validator
+from pydantic import validator
 
 from typing import TYPE_CHECKING
 
@@ -70,7 +70,7 @@ class Product(SQLModel, table=True):
             (self.promotion_end_at is None or self.promotion_end_at >= now)
         )
     
-    @field_validator("types", pre=True, always=True)
+    @validator("types", pre=True, always=True)
     def set_types_default(cls, v):
         if v is None:
             return []
