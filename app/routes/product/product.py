@@ -1,7 +1,6 @@
 # app/routes/product.py
 
 from datetime import datetime, timezone
-import os
 import uuid
 import json
 import logging
@@ -21,9 +20,6 @@ from app.integration.R2Service import R2Service
 db_session = get_session
 get_current_user = AuthRouter().get_current_user
 
-PRODUCT_IMAGE_DIR = "assets/img/product"
-os.makedirs(PRODUCT_IMAGE_DIR, exist_ok=True)
-
 Configuration()
 
 cache_manager = CacheManager()
@@ -39,7 +35,7 @@ class ProductRouter(APIRouter):
         self.add_api_route("/products/{product_id}/set-promotion", self.set_promotion, methods=["POST"], response_model=ProductResponse)
         self.add_api_route("/products/{product_id}", self.get_product, methods=["GET"], response_model=ProductResponse)
         self.add_api_route("/products/{product_id}", self.update_product, methods=["PUT"], response_model=ProductResponse)
-        self.add_api_route("/products/{product_id}", self.inactive_product, methods=["PUT"], response_model=dict)
+        self.add_api_route("/products/inactive/{product_id}", self.inactive_product, methods=["PUT"], response_model=dict)
         self.add_api_route("/products/{product_id}", self.delete_product, methods=["DELETE"], response_model=dict)
         self.add_api_route("/products/{product_id}/image", self.update_product_image, methods=["POST"], response_model=ProductResponse)
 
@@ -77,21 +73,23 @@ class ProductRouter(APIRouter):
             category = session.get(Category, category_id)
             if not category:
                 raise HTTPException(status_code=400, detail="Categoria não encontrada")
-            
-        image_filename = None
+
+        image_url = None
         if image_file:
             try:
                 file_extension = image_file.filename.split(".")[-1].lower()
                 image_filename = f"{uuid.uuid4().hex}.{file_extension}"
-                file_path = os.path.join(PRODUCT_IMAGE_DIR, image_filename)
-
-                with open(file_path, "wb") as image_data:
-                    contents = await image_file.read()
-                    image_data.write(contents)
+                contents = await image_file.read()
+                
+                # Upload para R2
+                image_url = await self.r2_service.upload_file(
+                    file_content=contents,
+                    file_name=image_filename,
+                    content_type=image_file.content_type
+                )
             except Exception as e:
                 raise HTTPException(500, detail=f"Erro ao salvar a imagem: {e}")
-
-
+            
         # Parse dos atributos
         parsed_attributes = None
         try:
@@ -129,6 +127,7 @@ class ProductRouter(APIRouter):
             logging.exception("Erro ao interpretar flavors")
             raise HTTPException(400, detail=f"Sabores inválidos: {e}")
 
+
         # Parse dos preços por tamanho
         parsed_prices = None
         try:
@@ -155,23 +154,15 @@ class ProductRouter(APIRouter):
             logging.exception("Erro ao interpretar options")
             raise HTTPException(400, detail=f"Options inválidas: {e}")
         
-        # # Parse dos tipos
-        # parsed_types = None
-        # try:
-        #     parsed_types = json.loads(types)
-        #     if not isinstance(parsed_types, list):
-        #         raise ValueError("types deve ser uma lista")
-        # except Exception as e:
-        #     raise HTTPException(400, detail=f"Tipos inválidos: {e}")
-
         
+
         product_data = ProductCreate(
             name=name,
             description=description,
             price=price,
             category_id=category_id,
             category=category,
-            image=image_filename,
+            image=image_url,
             rating=rating,
             reviews_count=reviews_count,
             attributes=parsed_attributes,
@@ -221,10 +212,9 @@ class ProductRouter(APIRouter):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado")
 
         product_data = product_update.dict(exclude_unset=True)
-
         for key, value in product_data.items():
             setattr(product, key, value)
-
+            
         if 'is_promotion' in product_data and not product_data['is_promotion']:
             product.promotion_discount_percentage = None
             product.promotion_start_at = None
@@ -234,7 +224,6 @@ class ProductRouter(APIRouter):
         session.add(product)
         session.commit()
         session.refresh(product)
-
         return product
 
     async def update_product_image(
@@ -247,32 +236,34 @@ class ProductRouter(APIRouter):
         if not product:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
 
+        # Se já existir uma imagem, deleta do R2
         if product.image:
-            old_image_path = os.path.join(PRODUCT_IMAGE_DIR, product.image)
-            if os.path.exists(old_image_path):
-                os.remove(old_image_path)
-        
+            try:
+                file_name = product.image.split('/')[-1]
+                await self.r2_service.delete_file(file_name)
+            except Exception as e:
+                logging.warning(f"Não foi possível deletar imagem antiga: {str(e)}")
+                
         try:
             file_extension = image_file.filename.split(".")[-1].lower()
             image_filename = f"{uuid.uuid4().hex}.{file_extension}"
-            file_path = os.path.join(PRODUCT_IMAGE_DIR, image_filename)
+            contents = await image_file.read()
+            
+            # Upload para R2
+            image_url = await self.r2_service.upload_file(
+                file_content=contents,
+                file_name=image_filename,
+                content_type=image_file.content_type
+            )
 
-            with open(file_path, "wb") as image_data:
-                contents = await image_file.read()
-                image_data.write(contents)
-
-            product.image = image_filename
-            product.updated_at = datetime.now(timezone.utc)
+            product.image = image_url
             session.add(product)
             session.commit()
             session.refresh(product)
             return product
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro ao salvar/atualizar a imagem: {e}",
-            )
-   
+            raise HTTPException(500, detail=f"Erro ao atualizar imagem: {e}")
+        
     async def set_promotion(
         self,
         product_id: int,
