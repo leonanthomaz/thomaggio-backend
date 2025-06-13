@@ -7,10 +7,10 @@ import os
 
 from app.configuration.settings import Configuration
 from app.database.connection import get_session
-from app.models.company import Company
-from app.models.user import User
-from app.schemas.auth import EmailResetRequest, PasswordResetRequest, Token, AuthCredentials
-from app.services.email import EmailService
+from app.models.company.company import Company
+from app.models.user.user import User
+from app.schemas.auth.auth import EmailResetRequest, PasswordResetRequest, Token, AuthCredentials
+from app.email import EmailService
 
 configuration = Configuration()
 
@@ -51,7 +51,7 @@ class AuthRouter(APIRouter):
     def get_current_user(self, request: Request, session: Session = Depends(db_session)) -> User:
         authorization: str = request.headers.get("Authorization")
         if not authorization:
-            raise HTTPException(status_code=401, detail="Authorization header missing")
+            raise HTTPException(status_code=401, detail="Acesso não autorizado")
 
         parts = authorization.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":

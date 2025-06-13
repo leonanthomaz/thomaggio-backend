@@ -4,7 +4,9 @@ from sqlmodel import Session, select
 from app.enums.company_status import CompanyStatus
 from app.models import Company, User, Category, Product
 from app.configuration.settings import Configuration
-from app.models.address import Address
+from app.models.user.address import Address
+from app.models.company.delivery_config import DeliveryConfig
+from app.schemas.company.delivery_config import DeliveryConfigCreate
 
 # Carregar configuração global
 configuration = Configuration()
@@ -13,8 +15,10 @@ def populate_database(session: Session):
     """Inicializa o banco de dados e popula com dados iniciais."""
     company = populate_company(session)
     populate_admin_user(session, company_id=company.id)
+    populate_employee_user(session, company_id=company.id)
     populate_default_category(session)
     populate_products(session, company_id=company.id)
+    populate_delivery_config(session)
 
 def populate_company(session: Session) -> Company:
     """Cria a empresa principal, se ainda não existir."""
@@ -45,6 +49,25 @@ def populate_company(session: Session) -> Company:
         session.commit()
         session.refresh(company)
     return company
+
+def populate_delivery_config(session: Session):
+    """Cria configuração de entrega padrão, se ainda não existir."""
+    existing_config = session.exec(select(DeliveryConfig)).first()
+    if existing_config:
+        return
+
+    config_data = DeliveryConfigCreate(
+        cep="20531-402",
+        central_point_lat=-22.9444,
+        central_point_lng=-43.2902,
+        radius=12.0,
+        default_delivery_fee=5.0
+    )
+
+    config = DeliveryConfig(**config_data.dict())
+    session.add(config)
+    session.commit()
+    session.refresh(config)
 
 def populate_admin_user(session: Session, company_id: int):
     """Cria o usuário admin padrão, se ainda não existir."""
@@ -81,6 +104,44 @@ def populate_admin_user(session: Session, company_id: int):
             is_company_address= True
         )
         
+        session.add(address_data)
+        session.commit()
+        
+def populate_employee_user(session: Session, company_id: int):
+    """Cria um usuário funcionário padrão, se ainda não existir."""
+    employee_username = "luziathomaz"
+    user = session.exec(select(User).where(User.username == employee_username)).first()
+    if not user:
+        user_data = {
+            "name": "Luzia",
+            "username": employee_username,
+            "email": "luzia.ts.rj@gmail.com",
+            "company_id": company_id,
+            "password_hash": hash_password("123"),
+            "phone": "(21) 99641-6049",
+            "role": "employee",
+            "is_admin": False,
+            "is_active": True,
+        }
+        user = User(**user_data)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        address_data = Address(
+            user_id=user.id,
+            company_id=company_id,
+            street="Rua do Funcionário",
+            number="123",
+            complement="Casa",
+            neighborhood="Centro",
+            reference="Próximo à praça",
+            city="Rio de Janeiro",
+            state="RJ",
+            zip_code="20531-390",
+            is_company_address=False
+        )
+
         session.add(address_data)
         session.commit()
 
@@ -133,7 +194,7 @@ def populate_products(session: Session, company_id: int):
             name="Pizza de Calabresa",
             description="Molho de tomate, calabresa, mussarela e manjericão fresco",
             stock=10,
-            image=None,
+            image="ad1b6ba4025a4145b2faa1a1404e8dad.jpg",
             size=["M", "G"],
             prices_by_size={"M": 42.0, "G": 55.0},
             types=["salgada"],
@@ -149,7 +210,7 @@ def populate_products(session: Session, company_id: int):
             name="Pizza de Mussarela",
             description="Molho de tomate, mussarela, orégano e azeite",
             stock=5,
-            image=None,
+            image="7765a63ad9a84abdb76f2834837ae0df.png",
             size=["M", "G"],
             prices_by_size={"M": 45.0, "G": 58.0},
             types=["salgada"],
@@ -165,7 +226,7 @@ def populate_products(session: Session, company_id: int):
             name="Pizza de Chocolate",
             description="Brigadeiro e morango",
             stock=5,
-            image=None,
+            image="e4280933dcca4264a8b46bcaf9c7491a.jpg",
             size=["M", "G"],
             prices_by_size={"M": 45.0, "G": 58.0},
             types=["doce"],
@@ -181,7 +242,7 @@ def populate_products(session: Session, company_id: int):
             name="Coca-Cola 2L",
             description="Bebida gelada",
             stock=20,
-            image=None,
+            image="50e2c708d2dc49398646a9e272f1741a.jpg",
             size=["U"],
             prices_by_size={"U": 13.0},
             types=["refrigerante"],
@@ -198,7 +259,7 @@ def populate_products(session: Session, company_id: int):
             name="Guaraná Antártica",
             description="Bebida gelada",
             stock=20,
-            image=None,
+            image="a16294bdf9dc46dbb48c17facd5b3c07.webp",
             size=["U"],
             prices_by_size={"U": 11.0},
             types=["refrigerante"],
@@ -213,7 +274,7 @@ def populate_products(session: Session, company_id: int):
         Product(
             name="Porção de 40 salgadinhos",
             description="Melhores salgadinhos",
-            image=None,
+            image="0225dc112e384a6a969d1e8a56255558.webp",
             size=["U"],
             selected_flavors= ["Coxinha", "Risole de Carne", "Enroladinho", "Kibe", "Bolinha de Queijo"],
             prices_by_size={"U": 36.0},
@@ -232,7 +293,7 @@ def populate_products(session: Session, company_id: int):
         Product(
             name="Porção de 50 salgadinhos",
             description="Melhores salgadinhos",
-            image=None,
+            image="814e3b9c57184a0399456dab235a3b0a.jpg",
             size=["U"],
             selected_flavors= ["Coxinha", "Risole de Carne", "Risole de Palmito", "Kibe", "Queijo com Presunto"],
             prices_by_size={"U": 45.0},

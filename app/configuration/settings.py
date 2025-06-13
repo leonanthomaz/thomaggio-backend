@@ -46,7 +46,6 @@ class Configuration:
         self.r2_bucket_name = os.getenv("R2_BUCKET_NAME")
         self.r2_url_public = os.getenv("ENDPOINT_PUBLIC_R2")
         
-        self.mercado_pago_key_test = os.getenv("MERCADO_PAGO_PUBLIC_KEY_TEST")
         self.mercado_pago_access_token_test = os.getenv("MERCADO_PAGO_ACCESS_TOKEN_TEST")
         self.mercado_pago_access_token_prod = os.getenv("MERCADO_PAGO_ACCESS_TOKEN_PROD")
         

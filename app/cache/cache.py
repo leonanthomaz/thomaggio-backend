@@ -1,13 +1,13 @@
 # app/cache/cache.py
 import logging
 from typing import Optional
-from app.models.category import Category
-from app.models.delivery_config import DeliveryConfig
-from app.schemas.product import ProductResponse
-from app.utils.cache import DataCache
+from app.models.product.category import Category
+from app.models.company.delivery_config import DeliveryConfig
+from app.schemas.product.product import ProductResponse
+from app.cache.cache_config import DataCache
 from sqlmodel import Session, select
-from app.models.company import Company
-from app.models.product import Product
+from app.models.company.company import Company
+from app.models.product.product import Product
 
 cache = DataCache()
 
