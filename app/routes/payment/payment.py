@@ -275,18 +275,12 @@ class PaymentRouter(APIRouter):
             session.add(payment)
             session.commit()
             
-            # Modificar o broadcast para garantir que está enviando os dados corretos
             await payment_ws_manager.broadcast({
-                "type": "payment_update",
-                "payment_id": payment.id,
-                "order_id": payment.order_id,
+                "type": "payment_status",
                 "transaction_code": transaction_code,
                 "status": payment.status.value,
                 "paid_at": payment.paid_at.isoformat() if payment.paid_at else None
             })
-
-            # Adicionar log para debug
-            logging.info(f"WebSocket broadcast enviado para transaction_code: {transaction_code}")
 
             return {"status": "ok"}
 
