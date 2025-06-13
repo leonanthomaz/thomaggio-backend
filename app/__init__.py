@@ -1,5 +1,6 @@
 import logging
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app.configuration.settings import Configuration
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
@@ -30,7 +31,7 @@ from app.tasks.websockets import routes as websocket_routes
 configuration = Configuration()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logging.info(f"Ambiente carregado: {configuration.environment}")
+logging.info(f"SISTEMA >>> Ambiente carregado: {configuration.environment}")
 
 def create_app():
     """
@@ -42,7 +43,10 @@ def create_app():
     init_db()
     start_scheduler()
 
-    origins = ["https://thomaggio.vercel.app", "https://thomaggio-dashboard.vercel.app"]
+    if configuration.environment == "production":
+        origins = ["https://thomaggio.vercel.app", "https://thomaggio-dashboard.vercel.app"]
+    else:
+        origins = ["http://localhost:3000", "http://localhost:3001"]
     
     app.add_middleware(
         CORSMiddleware,
@@ -52,9 +56,15 @@ def create_app():
         allow_headers=["*"],
     )
     
+    # Configure a montagem dos arquivos estáticos AQUI
+    app.mount("/static", StaticFiles(directory="assets"), name="static")
+    logging.info("SISTEMA >>> Rota /static montada para servir arquivos estáticos de assets")
+        
     app.include_router(HomeRouter())
+
     app.include_router(AuthRouter())
     app.include_router(AdminRouter())
+
     app.include_router(AddressRouter())
     app.include_router(CompanyRouter())
     app.include_router(UserRouter())
@@ -67,8 +77,8 @@ def create_app():
     app.include_router(DeliveryRouter())
     app.include_router(TokenStatusRouter())
     app.include_router(PaymentRouter())
-    app.include_router(PromoCodeRouter()) 
-    app.include_router(WhatsAppRouter()) 
+    app.include_router(PromoCodeRouter())
+    app.include_router(WhatsAppRouter())
 
     app.include_router(websocket_routes.router)
 

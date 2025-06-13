@@ -1,6 +1,7 @@
 # app/routes/product.py
 
 from datetime import datetime, timezone
+import os
 import uuid
 import json
 import logging
@@ -17,10 +18,14 @@ from app.database.connection import get_session
 from app.schemas.product.product import ProductCreate, ProductUpdate, ProductResponse
 from app.integration.R2Service import R2Service
 
+
 db_session = get_session
 get_current_user = AuthRouter().get_current_user
 
-Configuration()
+PRODUCT_IMAGE_DIR = "assets/img/product"
+os.makedirs(PRODUCT_IMAGE_DIR, exist_ok=True)
+
+configuration = Configuration()
 
 cache_manager = CacheManager()
 
@@ -74,22 +79,36 @@ class ProductRouter(APIRouter):
             if not category:
                 raise HTTPException(status_code=400, detail="Categoria não encontrada")
 
-        image_url = None
-        if image_file:
-            try:
-                file_extension = image_file.filename.split(".")[-1].lower()
-                image_filename = f"{uuid.uuid4().hex}.{file_extension}"
-                contents = await image_file.read()
-                
-                # Upload para R2
-                image_url = await self.r2_service.upload_file(
-                    file_content=contents,
-                    file_name=image_filename,
-                    content_type=image_file.content_type
-                )
-            except Exception as e:
-                raise HTTPException(500, detail=f"Erro ao salvar a imagem: {e}")
-            
+        if configuration.environment == "production":
+            image_url = None
+            if image_file:
+                try:
+                    file_extension = image_file.filename.split(".")[-1].lower()
+                    image_filename = f"{uuid.uuid4().hex}.{file_extension}"
+                    contents = await image_file.read()
+                    
+                    # Upload para R2
+                    image_url = await self.r2_service.upload_file(
+                        file_content=contents,
+                        file_name=image_filename,
+                        content_type=image_file.content_type
+                    )
+                except Exception as e:
+                    raise HTTPException(500, detail=f"Erro ao salvar a imagem: {e}")
+        else:
+            image_filename = None
+            if image_file:
+                try:
+                    file_extension = image_file.filename.split(".")[-1].lower()
+                    image_filename = f"{uuid.uuid4().hex}.{file_extension}"
+                    file_path = os.path.join(PRODUCT_IMAGE_DIR, image_filename)
+
+                    with open(file_path, "wb") as image_data:
+                        contents = await image_file.read()
+                        image_data.write(contents)
+                except Exception as e:
+                    raise HTTPException(500, detail=f"Erro ao salvar a imagem: {e}")
+
         # Parse dos atributos
         parsed_attributes = None
         try:
@@ -162,7 +181,7 @@ class ProductRouter(APIRouter):
             price=price,
             category_id=category_id,
             category=category,
-            image=image_url,
+            image=image_url if configuration.environment == "production" else image_filename,
             rating=rating,
             reviews_count=reviews_count,
             attributes=parsed_attributes,
