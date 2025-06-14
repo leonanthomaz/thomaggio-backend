@@ -4,10 +4,20 @@ from mercadopago.config.request_options import RequestOptions
 
 configuration = Configuration()
 
+# Configuração única para todos os ambientes
+request_options = RequestOptions()
+
 if configuration.environment == "production":
-    sdk = mercadopago.SDK(access_token=configuration.mercado_pago_access_token_prod)
-    request_options = None
+    sdk = mercadopago.SDK(
+        access_token=configuration.mercado_pago_access_token_prod,
+        request_options=request_options
+    )
 else:
-    request_options = RequestOptions()
-    request_options.sandbox = True
-    sdk = mercadopago.SDK(access_token=configuration.mercado_pago_access_token_test)
+    # Configuração específica para sandbox
+    request_options.access_token = configuration.mercado_pago_access_token_test
+    request_options.custom_headers = {"x-test-scope": "sandbox"}
+    
+    sdk = mercadopago.SDK(
+        access_token=configuration.mercado_pago_access_token_test,
+        request_options=request_options
+    )
