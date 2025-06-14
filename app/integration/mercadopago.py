@@ -6,11 +6,8 @@ configuration = Configuration()
 
 if configuration.environment == "production":
     sdk = mercadopago.SDK(access_token=configuration.mercado_pago_access_token_prod)
+    request_options = None
 else:
     request_options = RequestOptions()
     request_options.sandbox = True
-
-    sdk = mercadopago.SDK(
-        access_token=configuration.mercado_pago_access_token_test,
-        request_options=request_options
-    )
+    sdk = mercadopago.SDK(access_token=configuration.mercado_pago_access_token_test)

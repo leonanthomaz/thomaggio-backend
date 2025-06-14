@@ -10,7 +10,7 @@ from app.models.order.order import Order
 from app.models.payment.payment import Payment
 from app.schemas.payment.payment import PaymentRequest, PaymentResponse
 from app.enums.payment_status import PaymentStatus
-from app.integration.mercadopago import sdk
+from app.integration.mercadopago import sdk, request_options
 from app.tasks.websockets.ws_manager import payment_ws_manager
 
 Configuration()
@@ -179,7 +179,7 @@ class PaymentRouter(APIRouter):
             
             logging.info(f"PAGAMENTO >>> BODY PARA O PIX: {body}")
 
-            result = sdk.payment().create(body)
+            result = sdk.payment().create(body, request_options)
             logging.info(f"PAGAMENTO >>> RESULTADO DO SDK: {result}")
 
             response = result.get("response")
@@ -358,7 +358,7 @@ class PaymentRouter(APIRouter):
                 "capture": True  # Captura automática
             }
 
-            result = sdk.payment().create(body)
+            result = sdk.payment().create(body, request_options)
             response = result["response"]
 
             if response.get("status") not in ["approved", "in_process", "pending"]:
@@ -448,7 +448,7 @@ class PaymentRouter(APIRouter):
                 },
             }
 
-            result = sdk.payment().create(body)
+            result = sdk.payment().create(body, request_options)
             response = result["response"]
 
             if response.get("status") != "pending":
@@ -596,7 +596,7 @@ class PaymentRouter(APIRouter):
                     },
                 }
 
-                result = sdk.payment().create(body)
+                result = sdk.payment().create(body, request_options)
                 response = result["response"]
 
                 if response.get("status") != "pending":
