@@ -130,6 +130,8 @@ class PaymentRouter(APIRouter):
             order = session.exec(select(Order).where(Order.id == data.order_id)).first()
             if not order:
                 raise HTTPException(status_code=404, detail="Pedido não encontrado")
+            
+            logging.info(f"PAGAMENTO >>> PEDIDO ENVIADO: {order}")
 
             now_utc = datetime.now(timezone.utc)
 
@@ -139,6 +141,8 @@ class PaymentRouter(APIRouter):
                 .where(Payment.order_id == order.id, Payment.method == "pix")
                 .order_by(Payment.created_at.desc())
             ).first()
+            
+            logging.info(f"PAGAMENTO >>> PEDIDO EXISTENTE: {existing_payment}")
 
             if existing_payment:
                 if existing_payment.expires_at and existing_payment.expires_at > now_utc:
@@ -172,14 +176,20 @@ class PaymentRouter(APIRouter):
                     "last_name": last_name,
                 },
             }
+            
+            logging.info(f"PAGAMENTO >>> BODY PARA O PIX: {body}")
 
             result = sdk.payment().create(body)
-            response = result["response"]
-            
-            logging.info(f"RESPOSTA DO PAGAMENTO >>> {response}")
+            logging.info(f"PAGAMENTO >>> RESULTADO DO SDK: {result}")
+
+            response = result.get("response")
+            if not response:
+                raise HTTPException(status_code=500, detail="Erro ao se comunicar com o Mercado Pago")
 
             if response.get("status") != "pending":
                 raise HTTPException(status_code=400, detail="Erro ao gerar PIX")
+            
+            logging.info(f"RESPOSTA DO PAGAMENTO >>> {response}")
 
             poi = response.get("point_of_interaction", {})
             transaction_data = poi.get("transaction_data", {})
@@ -202,6 +212,7 @@ class PaymentRouter(APIRouter):
                 qr_code_base64=qr_code_base64,
                 created_at=now_utc
             )
+            logging.info(f"PAGAMENTO >>> A SER SALVO: {payment}")
             session.add(payment)
             session.commit()
             session.refresh(payment)
