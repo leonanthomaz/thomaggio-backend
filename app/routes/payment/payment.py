@@ -265,7 +265,11 @@ class PaymentRouter(APIRouter):
             if not payment:
                 return {"status": "not_found"}
 
-            if payment.expires_at and payment.expires_at < datetime.now(timezone.utc):
+            expires_at = payment.expires_at
+            if expires_at and expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+            if expires_at and expires_at < datetime.now(timezone.utc):
                 return {"status": "expired"}
 
             if status == "approved":
