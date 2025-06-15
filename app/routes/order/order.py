@@ -36,9 +36,7 @@ class OrderRouter(APIRouter):
         self.add_api_route("/orders/{order_id}", self.update_order, methods=["PUT"], response_model=OrderRead)
         self.add_api_route("/orders/{order_id}", self.delete_order, methods=["DELETE"], response_model=dict)
         self.add_api_route("/orders/{order_id}/status", self.update_order_status, methods=["PATCH"])
-        self.add_api_route("/orders/{order_id}/print", self.print_order, methods=["POST"])
-        self.add_api_route("/orders/{order_id}/rawbt", self.rawbt_format, methods=["GET"], response_class=PlainTextResponse)
-
+        self.add_api_route("/orders/{order_id}/print",self.print_order,methods=["GET"], response_class=PlainTextResponse)
 
     def list_orders(self, current_user: User = Depends(get_current_user), session: Session = Depends(db_session)):
         orders = session.exec(select(Order)).all()
@@ -283,22 +281,10 @@ class OrderRouter(APIRouter):
         session.refresh(order)
         return {"message": "Status atualizado com sucesso", "status": order.status}
 
-    def find_printer_port(self, baudrate=9600):
-        ports = list_ports.comports()
-        for port in ports:
-            try:
-                s = Serial(port.device, baudrate, timeout=2)
-                s.close()
-                return port.device
-            except Exception:
-                continue
-        return None
-
 
     async def print_order(
         self,
         order_id: int,
-        background_tasks: BackgroundTasks,
         session: Session = Depends(db_session),
         current_user=Depends(get_current_user),
     ):
@@ -315,71 +301,9 @@ class OrderRouter(APIRouter):
 
         # Produtos relacionados
         product_ids = [item.product_id for item in order.items]
-        products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
-        produtos_dict = {p.id: p for p in products}
-
-        def job():
-            try:
-                port = self.find_printer_port()
-                if not port:
-                    print("[ERRO IMPRESSÃO] Nenhuma impressora encontrada")
-                    return
-                p = Serial(port, 9600)
-
-                p.set(align='center', bold=True)
-                p.text(f"Comanda #{order.code}\n")
-                p.text(format_brazilian_date(order.created_at) + "\n\n")
-
-                p.set(align='left', bold=False)
-                for item in order.items:
-                    prod = produtos_dict.get(item.product_id)
-                    if not prod:
-                        continue
-
-                    name = prod.name[:20].ljust(20)
-                    qty = str(item.quantity)
-                    price = format_currency(item.total_price)
-                    p.text(f"{name}{qty} x {price}\n")
-
-                p.text("\n")
-
-                total = order.total_amount + (order.delivery_fee or 0.0)
-                p.set(bold=True)
-                p.text(f"TOTAL: {format_currency(total)}\n")
-
-                if order.payment_method:
-                    p.text(f"Pagamento: {order.payment_method.capitalize()}\n")
-
-                if order.cash_change_for:
-                    p.text(f"Troco para: {format_currency(order.cash_change_for)}\n")
-
-                p.cut()
-                p.close()
-            except Exception as e:
-                print(f"[ERRO IMPRESSÃO] {e}")
-
-        background_tasks.add_task(job)
-        return {"message": "Impressão enviada com sucesso"}
-    
-    async def rawbt_format(
-        self,
-        order_id: int,
-        session: Session = Depends(db_session),
-        current_user=Depends(get_current_user),
-    ):
-        order = session.get(Order, order_id)
-        if not order:
-            raise HTTPException(status_code=404, detail="Pedido não encontrado")
-
-        order.items = session.exec(
-            select(OrderItem).where(OrderItem.order_id == order.id)
+        products = session.exec(
+            select(Product).where(Product.id.in_(product_ids))
         ).all()
-
-        if not order.items:
-            raise HTTPException(status_code=400, detail="Pedido sem itens")
-
-        product_ids = [item.product_id for item in order.items]
-        products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
         produtos_dict = {p.id: p for p in products}
 
         lines = []
