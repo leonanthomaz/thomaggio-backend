@@ -1,14 +1,16 @@
 from datetime import datetime
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from sqlmodel import Session, or_, select
 from app.configuration.settings import Configuration
 from app.enums.cart import CartStatus
 from app.enums.order_status import OrderStatus
+from app.helpers.order.formatters import format_brazilian_date, format_currency
 from app.models.cart.cart import Cart
 from app.models.order.order import Order
 from app.models.order.order_item import OrderItem
+from app.models.product.product import Product
 from app.models.user.address import Address
 from app.models.company.promocode import PromoCode
 from app.schemas.order.order import OrderCreate, OrderUpdate, OrderRead, StatusUpdateRequest
@@ -16,6 +18,9 @@ from app.models.user.user import User
 from app.auth.auth import AuthRouter
 from app.database.connection import get_session
 from app.tasks.websockets.ws_manager import order_ws_manager
+from escpos.printer import Serial
+from serial.tools import list_ports
+from fastapi.responses import PlainTextResponse
 
 Configuration()
 db_session = get_session
@@ -31,6 +36,9 @@ class OrderRouter(APIRouter):
         self.add_api_route("/orders/{order_id}", self.update_order, methods=["PUT"], response_model=OrderRead)
         self.add_api_route("/orders/{order_id}", self.delete_order, methods=["DELETE"], response_model=dict)
         self.add_api_route("/orders/{order_id}/status", self.update_order_status, methods=["PATCH"])
+        self.add_api_route("/orders/{order_id}/print", self.print_order, methods=["POST"])
+        self.add_api_route("/orders/{order_id}/rawbt", self.rawbt_format, methods=["GET"], response_class=PlainTextResponse)
+
 
     def list_orders(self, current_user: User = Depends(get_current_user), session: Session = Depends(db_session)):
         orders = session.exec(select(Order)).all()
@@ -275,3 +283,129 @@ class OrderRouter(APIRouter):
         session.refresh(order)
         return {"message": "Status atualizado com sucesso", "status": order.status}
 
+    def find_printer_port(self, baudrate=9600):
+        ports = list_ports.comports()
+        for port in ports:
+            try:
+                s = Serial(port.device, baudrate, timeout=2)
+                s.close()
+                return port.device
+            except Exception:
+                continue
+        return None
+
+
+    async def print_order(
+        self,
+        order_id: int,
+        background_tasks: BackgroundTasks,
+        session: Session = Depends(db_session),
+        current_user=Depends(get_current_user),
+    ):
+        order = session.get(Order, order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+        order.items = session.exec(
+            select(OrderItem).where(OrderItem.order_id == order.id)
+        ).all()
+
+        if not order.items:
+            raise HTTPException(status_code=400, detail="Pedido sem itens")
+
+        # Produtos relacionados
+        product_ids = [item.product_id for item in order.items]
+        products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
+        produtos_dict = {p.id: p for p in products}
+
+        def job():
+            try:
+                port = self.find_printer_port()
+                if not port:
+                    print("[ERRO IMPRESSÃO] Nenhuma impressora encontrada")
+                    return
+                p = Serial(port, 9600)
+
+                p.set(align='center', bold=True)
+                p.text(f"Comanda #{order.code}\n")
+                p.text(format_brazilian_date(order.created_at) + "\n\n")
+
+                p.set(align='left', bold=False)
+                for item in order.items:
+                    prod = produtos_dict.get(item.product_id)
+                    if not prod:
+                        continue
+
+                    name = prod.name[:20].ljust(20)
+                    qty = str(item.quantity)
+                    price = format_currency(item.total_price)
+                    p.text(f"{name}{qty} x {price}\n")
+
+                p.text("\n")
+
+                total = order.total_amount + (order.delivery_fee or 0.0)
+                p.set(bold=True)
+                p.text(f"TOTAL: {format_currency(total)}\n")
+
+                if order.payment_method:
+                    p.text(f"Pagamento: {order.payment_method.capitalize()}\n")
+
+                if order.cash_change_for:
+                    p.text(f"Troco para: {format_currency(order.cash_change_for)}\n")
+
+                p.cut()
+                p.close()
+            except Exception as e:
+                print(f"[ERRO IMPRESSÃO] {e}")
+
+        background_tasks.add_task(job)
+        return {"message": "Impressão enviada com sucesso"}
+    
+    async def rawbt_format(
+        self,
+        order_id: int,
+        session: Session = Depends(db_session),
+        current_user=Depends(get_current_user),
+    ):
+        order = session.get(Order, order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+        order.items = session.exec(
+            select(OrderItem).where(OrderItem.order_id == order.id)
+        ).all()
+
+        if not order.items:
+            raise HTTPException(status_code=400, detail="Pedido sem itens")
+
+        product_ids = [item.product_id for item in order.items]
+        products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
+        produtos_dict = {p.id: p for p in products}
+
+        lines = []
+        lines.append(f"Comanda #{order.code}")
+        lines.append(format_brazilian_date(order.created_at))
+        lines.append("")
+
+        for item in order.items:
+            prod = produtos_dict.get(item.product_id)
+            if not prod:
+                continue
+            name = prod.name[:20].ljust(20)
+            qty = str(item.quantity)
+            price = format_currency(item.total_price)
+            lines.append(f"{name}{qty} x {price}")
+
+        lines.append("")
+
+        total = order.total_amount + (order.delivery_fee or 0.0)
+        lines.append(f"TOTAL: {format_currency(total)}")
+
+        if order.payment_method:
+            lines.append(f"Pagamento: {order.payment_method.capitalize()}")
+
+        if order.cash_change_for:
+            lines.append(f"Troco para: {format_currency(order.cash_change_for)}")
+
+        content = "\n".join(lines)
+        return PlainTextResponse(content)
