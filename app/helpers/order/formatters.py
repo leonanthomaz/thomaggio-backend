@@ -1,10 +1,9 @@
-import locale
 from datetime import datetime
+from babel.numbers import format_currency as babel_format_currency
+from babel.dates import format_datetime as babel_format_datetime
 
-locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+def format_currency(value: float, locale_str: str = 'pt_BR') -> str:
+    return babel_format_currency(value, 'BRL', locale=locale_str)
 
-def format_currency(value: float) -> str:
-    return locale.currency(value, grouping=True)
-
-def format_brazilian_date(date: datetime, fmt: str = "%d/%m/%Y %H:%M") -> str:
-    return date.strftime(fmt)
+def format_brazilian_date(date: datetime, locale_str: str = 'pt_BR') -> str:
+    return babel_format_datetime(date, "dd/MM/yyyy HH:mm", locale=locale_str)
