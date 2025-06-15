@@ -299,37 +299,122 @@ class OrderRouter(APIRouter):
         if not order.items:
             raise HTTPException(status_code=400, detail="Pedido sem itens")
 
-        # Produtos relacionados
+        # Carrega relacionamentos
         product_ids = [item.product_id for item in order.items]
-        products = session.exec(
-            select(Product).where(Product.id.in_(product_ids))
-        ).all()
+        products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
         produtos_dict = {p.id: p for p in products}
+        
+        if order.delivery_address_id:
+            order.delivery_address = session.get(Address, order.delivery_address_id)
 
+        # Cabeçalho
         lines = []
-        lines.append(f"Comanda #{order.code}")
-        lines.append(format_brazilian_date(order.created_at))
-        lines.append("")
-
+        lines.append("=" * 32)
+        lines.append(f"{'COMANDA':^32}")
+        lines.append(f"#{order.code:^32}")
+        lines.append("=" * 32)
+        lines.append(f"Data: {format_brazilian_date(order.created_at)}")
+        lines.append(f"Status: {order.status.value.upper()}")
+        lines.append("-" * 32)
+        
+        # Cliente
+        lines.append(f"Cliente: {order.customer_name or 'Não informado'}")
+        lines.append(f"Telefone: {order.phone or 'Não informado'}")
+        
+        # Endereço (se entrega)
+        if order.delivery_address:
+            addr = order.delivery_address
+            lines.append("-" * 32)
+            lines.append("ENTREGA:")
+            lines.append(f"{addr.street}, {addr.number}")
+            if addr.complement:
+                lines.append(f"Complemento: {addr.complement}")
+            lines.append(f"{addr.neighborhood}")
+            lines.append(f"{addr.city}/{addr.state}")
+            if addr.reference:
+                lines.append(f"Ref: {addr.reference}")
+        
+        lines.append("=" * 32)
+        lines.append(f"{'ITENS':^32}")
+        lines.append("=" * 32)
+        
+        # Itens do pedido
         for item in order.items:
             prod = produtos_dict.get(item.product_id)
             if not prod:
                 continue
-            name = prod.name[:20].ljust(20)
-            qty = str(item.quantity)
-            price = format_currency(item.total_price)
-            lines.append(f"{name}{qty} x {price}")
-
-        lines.append("")
-
-        total = order.total_amount + (order.delivery_fee or 0.0)
-        lines.append(f"TOTAL: {format_currency(total)}")
-
-        if order.payment_method:
-            lines.append(f"Pagamento: {order.payment_method.capitalize()}")
-
-        if order.cash_change_for:
+                
+            # Nome e quantidade
+            lines.append(f"{item.quantity}x {prod.name[:28]}")
+            
+            # Tamanho (se aplicável)
+            if item.size:
+                size_display = {
+                    'U': 'Único',
+                    'P': 'Pequeno',
+                    'M': 'Médio',
+                    'G': 'Grande',
+                    'GG': 'Extra Grande'
+                }.get(item.size, item.size)
+                lines.append(f"  Tamanho: {size_display}")
+            
+            # Sabores (se pizzas, por exemplo)
+            if item.selected_flavors:
+                lines.append("  Sabores:")
+                for flavor in item.selected_flavors:
+                    lines.append(f"  - {flavor.get('name')} ({flavor.get('quantity', 1)}x)")
+            
+            # Opcionais
+            if item.options:
+                lines.append("  Adicionais:")
+                for option, price in item.options.items():
+                    if price > 0:
+                        lines.append(f"  + {option} (+{format_currency(price)})")
+            
+            # Observação
+            if item.observation:
+                lines.append(f"  Obs: {item.observation[:28]}")
+            
+            # Preço do item
+            lines.append(f"  {format_currency(item.total_price)}")
+            lines.append("-" * 32)
+        
+        # Totais
+        lines.append("=" * 32)
+        lines.append(f"Subtotal: {format_currency(order.total_amount - (order.delivery_fee or 0))}")
+        
+        if order.delivery_fee and order.delivery_fee > 0:
+            lines.append(f"Taxa de Entrega: {format_currency(order.delivery_fee)}")
+        
+        # Descontos
+        if order.discount_value and order.discount_value > 0:
+            lines.append("-" * 32)
+            lines.append(f"Cupom: {order.discount_code or 'Desconto'}")
+            lines.append(f"Desconto: -{format_currency(order.discount_value)}")
+        
+        lines.append("=" * 32)
+        lines.append(f"TOTAL: {format_currency(order.total_amount)}")
+        lines.append("=" * 32)
+        
+        # Pagamento
+        payment_methods = {
+            'pix': 'PIX',
+            'dinheiro': 'DINHEIRO',
+            'cartao': 'CARTÃO',
+            'debito': 'CARTÃO DÉBITO',
+            'credito': 'CARTÃO CRÉDITO'
+        }
+        lines.append(f"Pagamento: {payment_methods.get(order.payment_method, order.payment_method.upper())}")
+        
+        if order.payment_method == 'dinheiro' and order.cash_change_for:
             lines.append(f"Troco para: {format_currency(order.cash_change_for)}")
-
+            if order.cash_change and order.cash_change > 0:
+                lines.append(f"Troco: {format_currency(order.cash_change)}")
+        
+        # Rodapé
+        lines.append("=" * 32)
+        lines.append(f"{'OBRIGADO PELA PREFERÊNCIA!':^32}")
+        lines.append("=" * 32)
+        
         content = "\n".join(lines)
         return PlainTextResponse(content)
