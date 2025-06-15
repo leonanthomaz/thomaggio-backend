@@ -324,7 +324,7 @@ class OrderRouter(APIRouter):
                 if not port:
                     print("[ERRO IMPRESSÃO] Nenhuma impressora encontrada")
                     return
-                p = Serial(port, 9600)
+                p = Serial('COM3', 9600)
 
                 p.set(align='center', bold=True)
                 p.text(f"Comanda #{order.code}\n")
