@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
+from datetime import datetime, timezone
+
 class PromoCode(SQLModel, table=True):
     __tablename__ = "tb_promocode"
      
@@ -16,9 +18,9 @@ class PromoCode(SQLModel, table=True):
     current_uses: int = Field(default=0)
     min_order_value: Optional[float] = Field(default=None, gt=0)
     
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     deleted_at: Optional[datetime] = Field(default=None)
-    
+
     class Config:
         from_attributes = True
