@@ -16,13 +16,19 @@ class CartCreate(CartBase):
 
 class CartUpdate(CartBase):
     status: Optional[CartStatus] = None
-
+    delivery_fee: Optional[float] = None
 
 class CartRead(CartBase):
     id: int
     code: str
     total: float
     total_items: int
+    total_with_discount: float
+    delivery_fee: Optional[float]
+    promo_code: Optional[str]
+    promo_discount_percentage: Optional[float]
+    promo_discount_value: Optional[float]
+    promo_applied_at: Optional[datetime]
     created_at: datetime
     items: List[CartItemRead] = []
     status: str

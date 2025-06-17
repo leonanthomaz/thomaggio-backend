@@ -12,8 +12,8 @@ class PromoCode(SQLModel, table=True):
     description: Optional[str] = Field(default=None, max_length=100)
     discount_percentage: float = Field(gt=0, le=100)
     is_active: bool = Field(default=True)
-    valid_from: datetime = Field(default_factory=datetime.now)
-    valid_until: datetime
+    valid_from: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
+    valid_until: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     max_uses: Optional[int] = Field(default=None, gt=0)
     current_uses: int = Field(default=0)
     min_order_value: Optional[float] = Field(default=None, gt=0)

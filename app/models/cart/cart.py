@@ -44,6 +44,11 @@ class Cart(SQLModel, table=True):
     @property
     def total(self) -> float:
         return sum(item.subtotal for item in self.items or [])
+    
+    @property
+    def total_with_discount(self) -> float:
+        discount = self.promo_discount_value or 0
+        return max(self.total - discount, 0)
 
     @property
     def total_items(self) -> int:

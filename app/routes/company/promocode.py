@@ -38,6 +38,14 @@ class PromoCodeRouter(APIRouter):
         self.add_api_route("/apply/{promo_code}/{cart_code}", self.apply_promocode, methods=["POST"])
         self.add_api_route("/remove/{cart_code}", self.remove_promocode, methods=["DELETE"])
 
+    def convert_local_to_utc(self, dt: datetime) -> datetime:
+        """Recebe datetime sem timezone e converte para UTC"""
+        if dt.tzinfo is None:
+            # Assume que a data está no fuso horário local (SP) e converte para UTC
+            return dt.replace(tzinfo=SAO_PAULO_TZ).astimezone(timezone.utc)
+        # Se já tem timezone, converte para UTC
+        return dt.astimezone(timezone.utc)
+    
     async def get_all_promocodes(self, current_user: User = Depends(get_current_user), session: Session = Depends(db_session)):
         is_admin(current_user)
         promo_codes = session.exec(select(PromoCode)).all()
@@ -66,7 +74,7 @@ class PromoCodeRouter(APIRouter):
             if dt:
                 dt = datetime.fromisoformat(dt) if isinstance(dt, str) else dt
                 # REMOVE timezone, força naive (local sem fuso explícito)
-                promo_dict[key] = dt.replace(tzinfo=None)
+                promo_dict[key] = self.convert_local_to_utc(dt)
 
 
                 db_promo = PromoCode(**promo_dict)
@@ -95,7 +103,7 @@ class PromoCodeRouter(APIRouter):
             dt = update_data.get(key)
             if dt:
                 dt = datetime.fromisoformat(dt) if isinstance(dt, str) else dt
-                update_data[key] = dt.replace(tzinfo=None)
+                update_data[key] = self.convert_local_to_utc(dt)
 
 
                 for key, value in update_data.items():
@@ -145,12 +153,10 @@ class PromoCodeRouter(APIRouter):
             )
 
         # 3. Validações do código promocional
-        SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
         now = datetime.now(SAO_PAULO_TZ)
 
-        # As datas do promo vêm do banco em UTC, então já estão prontas para comparação direta com 'now'
-        valid_from_utc = promo.valid_from
-        valid_until_utc = promo.valid_until
+        valid_from_local = promo.valid_from.astimezone(SAO_PAULO_TZ) if promo.valid_from else None
+        valid_until_local = promo.valid_until.astimezone(SAO_PAULO_TZ) if promo.valid_until else None
 
         if not promo.is_active:
             raise HTTPException(
@@ -158,56 +164,41 @@ class PromoCodeRouter(APIRouter):
                 detail="Código promocional inativo"
             )
 
-        if valid_from_utc and now < valid_from_utc:
-            # Para a mensagem de erro, você pode converter para o fuso horário local
-            valid_from_local = valid_from_utc.astimezone(SAO_PAULO_TZ)
+        if valid_from_local and now < valid_from_local:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Código promocional válido apenas a partir de {valid_from_local.strftime('%d/%m/%Y %H:%M')}"
             )
 
-        if valid_until_utc and now > valid_until_utc:
-            # Para a mensagem de erro, você pode converter para o fuso horário local
-            valid_until_local = valid_until_utc.astimezone(SAO_PAULO_TZ)
+        if valid_until_local and now > valid_until_local:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Código promocional expirado em {valid_until_local.strftime('%d/%m/%Y %H:%M')}"
             )
 
-        if promo.max_uses is not None and promo.current_uses >= promo.max_uses:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Código promocional atingiu o limite de usos"
-            )
-
-        if promo.min_order_value is not None and cart.total < promo.min_order_value:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Valor mínimo do pedido para este cupom é R$ {promo.min_order_value:.2f}"
-            )
-
         # 4. Calcula o desconto
-        discount_value = cart.total * (promo.discount_percentage / 100)
-        total_with_discount = max(cart.total - discount_value, 0)
+        subtotal = cart.total  # Somente os produtos
+        discount_value = subtotal * (promo.discount_percentage / 100)
 
         cart.promo_code = promo.code
         cart.promo_discount_percentage = promo.discount_percentage
         cart.promo_discount_value = discount_value
-        cart.promo_applied_at = datetime.now(timezone.utc) # Salvar em UTC
+        cart.promo_applied_at = datetime.now(timezone.utc)
         promo.current_uses += 1
 
         session.add_all([cart, promo])
         session.commit()
 
-        # 6. Retorna os dados do desconto aplicado
         return {
-            "original_total": cart.total,
+            "subtotal": subtotal,
             "discount_percentage": promo.discount_percentage,
             "discount_value": discount_value,
-            "total_with_discount": total_with_discount,
+            "total_with_discount": max(subtotal - discount_value, 0),
             "promo_code": promo.code,
             "promo_description": promo.description
         }
+
+
 
     async def remove_promocode(
         self,
