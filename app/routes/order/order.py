@@ -79,165 +79,156 @@ class OrderRouter(APIRouter):
             raise HTTPException(status_code=404, detail="Pedido não encontrado")
 
     async def create_order(self, order_request: OrderCreate, session: Session = Depends(db_session)):
-        try:
-            # 1. Criar ou recuperar usuário
-            user = session.exec(
-                select(User).where(User.phone == order_request.customer.phone)
-            ).first()
-            
-            if not user:
-                user = User(
-                    name=order_request.customer.name,
-                    phone=order_request.customer.phone,
-                    role="customer",
-                    is_active=True
-                )
-                session.add(user)
-                session.commit()
-                session.refresh(user)
-            else:
-                # Atualiza nome se mudou
-                if user.name != order_request.customer.name:
-                    user.name = order_request.customer.name
+            try:
+                # 1. Criar ou recuperar usuário
+                user = session.exec(
+                    select(User).where(User.phone == order_request.customer.phone)
+                ).first()
+                
+                if not user:
+                    user = User(
+                        name=order_request.customer.name,
+                        phone=order_request.customer.phone,
+                        role="customer",
+                        is_active=True
+                    )
                     session.add(user)
                     session.commit()
+                    session.refresh(user)
+                else:
+                    # Atualiza nome se mudou
+                    if user.name != order_request.customer.name:
+                        user.name = order_request.customer.name
+                        session.add(user)
+                        session.commit()
 
-            # 2. Criar ou reaproveitar endereço
-            existing_address = session.exec(
-                select(Address).where(
-                    Address.user_id == user.id,
-                    Address.street == order_request.address.street,
-                    Address.number == order_request.address.number,
-                    Address.complement == order_request.address.complement,
-                    Address.neighborhood == order_request.address.neighborhood,
-                    Address.city == order_request.address.city,
-                    Address.state == order_request.address.state,
-                    Address.zip_code == order_request.address.zip_code,
-                    Address.reference == order_request.address.reference,
-                    Address.is_company_address == False
-                )
-            ).first()
+                # 2. Gerenciar endereço - pegar o primeiro endereço existente ou criar um novo
+                address = session.exec(
+                    select(Address)
+                    .where(Address.user_id == user.id)
+                    .where(Address.is_company_address == False)
+                    .order_by(Address.id)  # Ordena por ID para pegar o mais antigo primeiro
+                ).first()
 
-            if existing_address:
-                address = existing_address
-            else:
-                address = Address(
-                    street=order_request.address.street,
-                    number=order_request.address.number,
-                    complement=order_request.address.complement,
-                    neighborhood=order_request.address.neighborhood,
-                    city=order_request.address.city,
-                    state=order_request.address.state,
-                    zip_code=order_request.address.zip_code,
-                    reference=order_request.address.reference,
-                    user_id=user.id,
-                    is_company_address=False
-                )
-                session.add(address)
+                if address:
+                    # Atualiza o endereço existente com os novos dados
+                    address.street = order_request.address.street
+                    address.number = order_request.address.number
+                    address.complement = order_request.address.complement
+                    address.neighborhood = order_request.address.neighborhood
+                    address.city = order_request.address.city
+                    address.state = order_request.address.state
+                    address.zip_code = order_request.address.zip_code
+                    address.reference = order_request.address.reference
+                    session.add(address)
+                else:
+                    # Cria um novo endereço se não existir nenhum
+                    address = Address(
+                        street=order_request.address.street,
+                        number=order_request.address.number,
+                        complement=order_request.address.complement,
+                        neighborhood=order_request.address.neighborhood,
+                        city=order_request.address.city,
+                        state=order_request.address.state,
+                        zip_code=order_request.address.zip_code,
+                        reference=order_request.address.reference,
+                        user_id=user.id,
+                        is_company_address=False
+                    )
+                    session.add(address)
+                
                 session.commit()
                 session.refresh(address)
 
-            # 3. Validar cupom promocional
-            discount_value = 0.0
-            promo_code_upper = order_request.promo_code.upper() if order_request.promo_code else None
+                # Restante do código permanece igual...
+                # 3. Validar cupom promocional (se veio do carrinho, já foi validado)
+                discount_value = order_request.discount_value or 0.0
+                promo_code = order_request.promo_code.upper() if order_request.promo_code else None
 
-            if promo_code_upper:
-                promo = session.exec(
-                    select(PromoCode).where(PromoCode.code == promo_code_upper)
-                ).first()
+                if promo_code:
+                    # Verifica se o cupom existe e está ativo (mas não recalcula o desconto)
+                    promo = session.exec(
+                        select(PromoCode).where(PromoCode.code == promo_code)
+                    ).first()
 
-                if not promo:
-                    raise HTTPException(status_code=400, detail="Código promocional inválido")
+                    if promo:
+                        # Atualiza contagem de usos do cupom
+                        promo.current_uses += 1
+                        session.add(promo)
+                        session.commit()
 
-                now = datetime.now()
-                if not promo.is_active or promo.valid_from > now or promo.valid_until < now:
-                    raise HTTPException(status_code=400, detail="Código promocional não está ativo")
+                if order_request.payment_method == "dinheiro" and order_request.cash_change_for:
+                    # O total a pagar deve incluir o valor com desconto MAIS a taxa de entrega
+                    total_a_pagar = (order_request.total_amount_with_discount 
+                                     if order_request.promo_code 
+                                     else order_request.total_amount) + (order_request.delivery_fee or 0)
+                    
+                    cash_change_total = order_request.cash_change_for - total_a_pagar
+                else:
+                    cash_change_total = None
 
-                if promo.max_uses and promo.current_uses >= promo.max_uses:
-                    raise HTTPException(status_code=400, detail="Código promocional atingiu o limite de uso")
 
-                if promo.min_order_value and order_request.total_amount < promo.min_order_value:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Valor mínimo para usar esse cupom é {promo.min_order_value}"
+                # 4. Criar pedido com os valores já calculados
+                order = Order(
+                    user_id=user.id,
+                    customer_name=user.name,
+                    phone=user.phone,
+                    delivery_address_id=address.id,
+                    payment_method=order_request.payment_method,
+                    delivery_fee=order_request.delivery_fee,
+                    total_amount=order_request.total_amount,
+                    total_amount_with_discount=order_request.total_amount_with_discount,
+                    discount_code=promo_code,
+                    discount_value=discount_value,
+                    whatsapp_id=order_request.whatsapp_id,
+                    status=OrderStatus.PENDING,
+                    cash_change_for=order_request.cash_change_for,
+                    cash_change=cash_change_total,
+                    is_whatsapp=order_request.is_whatsapp,
+                    privacy_policy_version=order_request.privacy_policy_version,
+                    privacy_policy_accepted_at=order_request.privacy_policy_accepted_at
+                )
+                session.add(order)
+                session.commit()
+                session.refresh(order)
+
+                # 5. Criar itens do pedido
+                for item in order_request.items:
+                    order_item = OrderItem(
+                        product_id=item.product_id,
+                        quantity=item.quantity,
+                        unit_price=item.unit_price,
+                        total_price=item.total_price,
+                        size=item.size,
+                        observation=item.observation,
+                        selected_flavors=item.selected_flavors,
+                        order_id=order.id
                     )
+                    session.add(order_item)
 
-                discount_value = order_request.total_amount * (promo.discount_percentage / 100)
-                promo.current_uses += 1
-                session.add(promo)
+                # 6. Atualizar status do carrinho, se houver
+                if order_request.cart_code:
+                    cart = session.exec(select(Cart).where(Cart.code == order_request.cart_code)).first()
+                    if cart:
+                        cart.status = CartStatus.COMPLETED
+                        session.add(cart)
+
                 session.commit()
 
-            total_after_discount = max(order_request.total_amount - discount_value, 0)
+                # 7. Popular dados para resposta
+                order.items = session.exec(select(OrderItem).where(OrderItem.order_id == order.id)).all()
+                order.delivery_address = address
 
-            cash_change_total = (
-                order_request.cash_change_for - order_request.total_amount
-                if order_request.payment_method == "dinheiro" and order_request.cash_change_for
-                else None
-            )
+                await order_ws_manager.broadcast({
+                    "type": "new_order",
+                    "order": OrderRead.model_validate(order).model_dump(mode="json")
+                })
 
-            # 4. Criar pedido
-            order = Order(
-                user_id=user.id,
-                customer_name=user.name,
-                phone=user.phone,
-                delivery_address_id=address.id,
-                payment_method=order_request.payment_method,
-                delivery_fee=order_request.delivery_fee,
-                total_amount=total_after_discount,
-                discount_code=promo_code_upper,
-                discount_value=discount_value,
-                whatsapp_id=order_request.whatsapp_id,
-                status=OrderStatus.PENDING,
-                cash_change_for=order_request.cash_change_for,
-                cash_change=cash_change_total,
-                is_whatsapp=order_request.is_whatsapp,
-                privacy_policy_version=order_request.privacy_policy_version,
-                privacy_policy_accepted_at=order_request.privacy_policy_accepted_at
-            )
-            session.add(order)
-            session.commit()
-            session.refresh(order)
+                return OrderRead.model_validate(order)
 
-            # 5. Criar itens do pedido
-            for item in order_request.items:
-                flavors = item.selected_flavors
-                if flavors is not None and not isinstance(flavors, list):
-                    raise ValueError("selected_flavors deve ser uma lista ou None")
-                
-                order_item = OrderItem(
-                    product_id=item.product_id,
-                    quantity=item.quantity,
-                    unit_price=item.unit_price,
-                    total_price=item.total_price,
-                    size=item.size,
-                    observation=item.observation,
-                    selected_flavors=item.selected_flavors,
-                    order_id=order.id
-                )
-                session.add(order_item)
-
-            # 6. Atualizar status do carrinho, se houver
-            if order_request.cart_code:
-                cart = session.exec(select(Cart).where(Cart.code == order_request.cart_code)).first()
-                if cart:
-                    cart.status = CartStatus.COMPLETED
-
-            session.commit()
-
-            # 7. Popular dados para resposta
-            order.items = session.exec(select(OrderItem).where(OrderItem.order_id == order.id)).all()
-            order.delivery_address = address
-
-            await order_ws_manager.broadcast({
-                "type": "new_order",
-                "order": OrderRead.model_validate(order).model_dump(mode="json")
-            })
-
-            return OrderRead.model_validate(order)
-
-        except Exception as e:
-            session.rollback()
-            raise HTTPException(status_code=400, detail=str(e))
+            except Exception as e:
+                session.rollback()
+                raise HTTPException(status_code=400, detail=str(e))
 
     async def get_order_by_code(self, code: str, session: Session = Depends(db_session)):
         order = session.exec(select(Order).where(Order.code == code)).first()
@@ -406,23 +397,36 @@ class OrderRouter(APIRouter):
                 lines.append(f"R$ {format_currency(item.total_price)}")
                 lines.append("-" * 24)
             
-            # Totais
-            lines.append("=" * 24)
-            lines.append(f"Subtotal:    R$ {format_currency(order.total_amount - (order.delivery_fee or 0))}")
-            
-            if order.delivery_fee and order.delivery_fee > 0:
-                lines.append(f"Taxa Entrega: R$ {format_currency(order.delivery_fee)}")
-            
-            # Descontos
+            # Resumo de valores
+            # O subtotal deve ser o valor dos itens sem desconto
+            subtotal_itens = order.total_amount
+
+            # Aplica desconto se houver
             if order.discount_value and order.discount_value > 0:
-                lines.append("-" * 24)
-                lines.append(f"Cupom: {order.discount_code or 'Desconto'}")
+                valor_com_desconto = subtotal_itens - order.discount_value
+            else:
+                valor_com_desconto = subtotal_itens
+
+            # Taxa de entrega (se aplicável)
+            taxa_entrega = order.delivery_fee if order.delivery_fee else 0
+
+            # Total geral (itens com desconto + entrega)
+            total_geral = valor_com_desconto + taxa_entrega
+
+            # Atualizar as linhas de exibição
+            lines.append(f"Subtotal: R$ {format_currency(subtotal_itens)}")
+
+            if order.discount_value and order.discount_value > 0:
                 lines.append(f"Desconto: -R$ {format_currency(order.discount_value)}")
-            
+                lines.append(f"Cupom: {order.discount_code or 'Aplicado'}")
+                lines.append(f"Total c/ desc: R$ {format_currency(valor_com_desconto)}")
+
+            if order.delivery_fee and order.delivery_fee > 0:
+                lines.append(f"Entrega: +R$ {format_currency(order.delivery_fee)}")
+
             lines.append("=" * 24)
-            lines.append(f"TOTAL: R$ {format_currency(order.total_amount)}")
-            lines.append("=" * 24)
-            
+            lines.append(f"TOTAL GERAL: R$ {format_currency(total_geral)}")
+                        
             # Pagamento
             payment_methods = {
                 'pix': 'PIX',

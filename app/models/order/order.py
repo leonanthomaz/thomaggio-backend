@@ -41,7 +41,8 @@ class Order(SQLModel, table=True):
     payment_method: str = Field(default="pix")
     delivery_fee: float = Field(default=0.0)
     total_amount: float = Field(default=0.0)
-    
+    total_amount_with_discount: float = Field(default=0.0)
+
     discount_code: Optional[str] = Field(default=None, index=True)
     discount_percentage: Optional[float] = Field(default=None)
     discount_value: Optional[float] = Field(default=None)

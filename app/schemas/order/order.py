@@ -58,12 +58,14 @@ class OrderCreate(BaseModel):
     payment_method: str
     delivery_fee: float
     total_amount: float
+    total_amount_with_discount: float
     table_number: Optional[int] = None
     whatsapp_id: Optional[str] = None
     cart_code: Optional[str] = None
     cash_change_for: Optional[float] = None
     cash_amount_given: Optional[float] = None
     promo_code: Optional[str] = None
+    discount_value: Optional[float] = None
     is_whatsapp: Optional[bool] = None
     privacy_policy_version: Optional[str]
     privacy_policy_accepted_at: datetime
@@ -84,7 +86,6 @@ class OrderUpdate(BaseModel):
 class StatusUpdateRequest(BaseModel):
     status: OrderStatus
 
-
 # --- ORDER READ ---
 class OrderRead(BaseModel):
     id: int
@@ -99,6 +100,7 @@ class OrderRead(BaseModel):
     payment_method: str
     delivery_fee: float
     total_amount: float
+    total_amount_with_discount: float
     items: List[OrderItemRead]
     created_at: datetime
     updated_at: Optional[datetime]

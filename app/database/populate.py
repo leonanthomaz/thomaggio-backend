@@ -57,7 +57,7 @@ def populate_delivery_config(session: Session):
         return
 
     config_data = DeliveryConfigCreate(
-        cep="20531-402",
+        cep="20531402",
         central_point_lat=-22.9444,
         central_point_lng=-43.2902,
         radius=12.0,
@@ -80,7 +80,7 @@ def populate_admin_user(session: Session, company_id: int):
             "email": "leonan.thomaz@gmail.com",
             "company_id": company_id,
             "password_hash": hash_password("leonan2knet"),
-            "phone": "(21) 99809-0928",
+            "phone": "21998090928",
             "role": "admin",
             "is_admin": True,
             "is_active": True,
@@ -118,7 +118,7 @@ def populate_employee_user(session: Session, company_id: int):
             "email": "luzia.ts.rj@gmail.com",
             "company_id": company_id,
             "password_hash": hash_password("123"),
-            "phone": "(21) 99641-6049",
+            "phone": "21996416049",
             "role": "employee",
             "is_admin": False,
             "is_active": True,
