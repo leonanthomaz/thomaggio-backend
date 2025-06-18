@@ -66,6 +66,8 @@ class OrderCreate(BaseModel):
     cash_amount_given: Optional[float] = None
     promo_code: Optional[str] = None
     discount_value: Optional[float] = None
+    discount_percentage: Optional[float] = None
+    discount_description: Optional[str] = None
     is_whatsapp: Optional[bool] = None
     privacy_policy_version: Optional[str]
     privacy_policy_accepted_at: datetime

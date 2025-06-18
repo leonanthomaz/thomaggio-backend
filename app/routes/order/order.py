@@ -140,16 +140,20 @@ class OrderRouter(APIRouter):
                 session.commit()
                 session.refresh(address)
 
-                # Restante do código permanece igual...
                 # 3. Validar cupom promocional (se veio do carrinho, já foi validado)
                 discount_value = order_request.discount_value or 0.0
+                discount_percentage = order_request.discount_percentage or 0.0
                 promo_code = order_request.promo_code.upper() if order_request.promo_code else None
+                discount_description = order_request.discount_description if order_request.discount_description else None
 
                 if promo_code:
                     # Verifica se o cupom existe e está ativo (mas não recalcula o desconto)
                     promo = session.exec(
                         select(PromoCode).where(PromoCode.code == promo_code)
                     ).first()
+                    
+                    discount_percentage=promo.discount_percentage
+                    discount_description=promo.description
 
                     if promo:
                         # Atualiza contagem de usos do cupom
@@ -180,6 +184,8 @@ class OrderRouter(APIRouter):
                     total_amount_with_discount=order_request.total_amount_with_discount,
                     discount_code=promo_code,
                     discount_value=discount_value,
+                    discount_percentage=discount_percentage,
+                    discount_description=discount_description,
                     whatsapp_id=order_request.whatsapp_id,
                     status=OrderStatus.PENDING,
                     cash_change_for=order_request.cash_change_for,
