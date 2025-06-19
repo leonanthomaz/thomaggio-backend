@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from app.configuration.settings import Configuration
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
-from app.helpers.scheduler.scheduler import start_scheduler
+from app.tasks.scheduler.scheduler import start_scheduler
 
 from app.auth.auth import AuthRouter
 from app.admin.admin import AdminRouter

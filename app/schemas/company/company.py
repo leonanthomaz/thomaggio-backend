@@ -53,7 +53,6 @@ class CompanyUpdate(BaseModel):
     status: Optional[CompanyStatus] = Field(default=None)
     updated_at: Optional[datetime] = None
 
-
 class CompanyPublicInfo(CompanyBase):
     id: int
     created_at: datetime

@@ -48,8 +48,6 @@ class CategoryRouter(APIRouter):
         if not category:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Categoria não encontrada")
 
-        is_deactivating = updated_category.is_active is False
-
         for key, value in updated_category.dict(exclude_unset=True).items():
             setattr(category, key, value)
 

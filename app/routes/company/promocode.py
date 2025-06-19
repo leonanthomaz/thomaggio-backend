@@ -198,8 +198,6 @@ class PromoCodeRouter(APIRouter):
             "promo_description": promo.description
         }
 
-
-
     async def remove_promocode(
         self,
         cart_code: str,

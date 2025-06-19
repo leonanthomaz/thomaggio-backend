@@ -9,10 +9,8 @@ from app.schemas.cart.cart_item import CartItemRead
 class CartBase(BaseModel):
     whatsapp_id: Optional[str] = None
 
-
 class CartCreate(CartBase):
     pass
-
 
 class CartUpdate(CartBase):
     status: Optional[CartStatus] = None
@@ -35,7 +33,6 @@ class CartRead(CartBase):
     
     class Config:
         orm_mode = True
-
 
 class CartList(BaseModel):
     id: int
